@@ -1,0 +1,20 @@
+{
+    // データベース接続設定
+    "database": {
+        // SQLiteなら: "sqlite://../database.sqlite"
+        // MySQLなら: "mysql://user:pass@localhost:3306/db_name"
+        "url": "sqlite://../database.sqlite",
+        // 使用するテーブル名 (変更したい場合はここを編集)
+        "table": "participants_routes"
+    },
+
+    // ルートの設定
+    "routes": {
+        "$START$": {
+            "goto": "https://example.com/"
+        },
+        "https://example.com/": {
+            "goto": "https://example.com/form"
+        }
+    }
+}
