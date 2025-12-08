@@ -1,20 +1,60 @@
 {
-    // データベース接続設定
+    // ベースパスの設定 (例: "/~keimag/router" や "/router")
+    // 空の場合は自動検知を試みます
+    "base_path": "",
+
+    // データベース設定
     "database": {
-        // SQLiteなら: "sqlite://../database.sqlite"
-        // MySQLなら: "mysql://user:pass@localhost:3306/db_name"
-        "url": "sqlite://../database.sqlite",
-        // 使用するテーブル名 (変更したい場合はここを編集)
+        // SQLite: sqlite://./path/to/database.db
+        // MySQL: mysql://user:password@hostname/databasename
+        // PostgreSQL: pgsql://user:password@hostname/databasename
+        "url": "sqlite://./router_database.db",
+        // participants-routerが使うテーブル名を変えたい場合はここを変更してください
         "table": "participants_routes"
     },
 
-    // ルートの設定
-    "routes": {
-        "$START$": {
-            "goto": "https://example.com/"
-        },
-        "https://example.com/": {
-            "goto": "https://example.com/form"
+    // 実験定義
+    "experiments": {
+        // ここに実験を追加してください
+        // 以下 test_experiment というIDの実験例
+        "test_experiment": {
+            "enable": true, // 実験の有効化フラグ(終了した実験はfalseに設定)
+            "config": {
+                // アクセス制御
+                "access_control": {
+                    "deny_redirect": "https://example.com/sorry",
+                    "rules": [
+                        // test_ で始まるworker_idは拒否する例
+                        { "type": "regex", "field": "worker_id", "pattern": "^test_.*", "action": "deny" }
+                    ]
+                },
+
+                // 割り当て戦略: "minimum_count" (均等) or "random"
+                "assignment_strategy": "minimum_count",
+                
+                // 満員時のリダイレクト先
+                "fallback_url": "https://example.com/sorry",
+
+                // 条件定義
+                "conditions": {
+                    "group_A": {
+                        "limit": 50, // 定員
+                        "steps": [
+                            "https://example.com/presurvey",
+                            "https://example.com/test?mode=A",
+                            "https://example.com/debrief"
+                        ]
+                    },
+                    "group_B": {
+                        "limit": 50,
+                        "steps": [
+                            "https://example.com/presurvey",
+                            "https://example.com/test?mode=B",
+                            "https://example.com/debrief"
+                        ]
+                    }
+                }
+            }
         }
     }
 }

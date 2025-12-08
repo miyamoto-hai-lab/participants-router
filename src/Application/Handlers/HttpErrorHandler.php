@@ -39,6 +39,11 @@ class HttpErrorHandler extends SlimErrorHandler
                 $error->setType(ActionError::RESOURCE_NOT_FOUND);
             } elseif ($exception instanceof HttpMethodNotAllowedException) {
                 $error->setType(ActionError::NOT_ALLOWED);
+                // パスを含めた詳細なメッセージを作成
+                $path = $this->request->getUri()->getPath();
+                $allowedMethods = implode(', ', $exception->getAllowedMethods());
+                $message = sprintf("Method not allowed for '%s'. Must be one of: %s", $path, $allowedMethods);
+                $error->setDescription($message);
             } elseif ($exception instanceof HttpUnauthorizedException) {
                 $error->setType(ActionError::UNAUTHENTICATED);
             } elseif ($exception instanceof HttpForbiddenException) {

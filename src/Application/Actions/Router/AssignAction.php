@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\Actions\Router;
+
+use App\Application\Actions\Action;
+use App\Domain\Router\RouterService;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Log\LoggerInterface;
+
+class AssignAction extends Action
+{
+    private $routerService;
+
+    public function __construct(LoggerInterface $logger, RouterService $routerService)
+    {
+        parent::__construct($logger);
+        $this->routerService = $routerService;
+    }
+
+    protected function action(): Response
+    {
+        $data = $this->getFormData();
+        
+        $experimentId = $data['experiment_id'] ?? null;
+        $browserId = $data['browser_id'] ?? null; // ここでbrowser_idを受け取る
+        $properties = $data['properties'] ?? [];
+
+        // worker_idがトップレベルにあればpropertiesに入れる
+        if (isset($data['worker_id'])) {
+            $properties['worker_id'] = $data['worker_id'];
+        }
+
+        if (!$experimentId || !$browserId) {
+            return $this->respondWithData(['status' => 'error', 'message' => 'Missing parameters'], 400);
+        }
+
+        $result = $this->routerService->assign($experimentId, $browserId, $properties);
+
+        return $this->respondWithData($result);
+    }
+}

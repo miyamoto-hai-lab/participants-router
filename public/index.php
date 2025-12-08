@@ -37,6 +37,15 @@ $container = $containerBuilder->build();
 // Instantiate the app
 AppFactory::setContainer($container);
 $app = AppFactory::create();
+
+// Configからbase_pathを取得して設定★
+$settings = $container->get(SettingsInterface::class);
+$basePath = $settings->get('base_path');
+
+if (!empty($basePath)) {
+    $app->setBasePath($basePath);
+}
+
 $callableResolver = $app->getCallableResolver();
 
 // Register middleware
@@ -75,6 +84,9 @@ $app->addBodyParsingMiddleware();
 // Add Error Middleware
 $errorMiddleware = $app->addErrorMiddleware($displayErrorDetails, $logError, $logErrorDetails);
 $errorMiddleware->setDefaultErrorHandler($errorHandler);
+
+// Initialize Eloquent ORM (if needed)
+$container->get(Illuminate\Database\Capsule\Manager::class); 
 
 // Run App & Emit Response
 $response = $app->handle($request);
