@@ -35,10 +35,15 @@
                 // 満員時のリダイレクト先
                 "fallback_url": "https://example.com/sorry",
 
+                // ハートビート間隔 (秒)
+                // この時間を過ぎると離脱とみなされ、枠が解放されます。
+                // 1未満を設定すると、ハートビートによる離脱判定を行いません(一度割り当てられたら枠を占有し続けます)。
+                "heartbeat_intervalsec": 60,
+
                 // 条件定義
                 "conditions": {
                     "group_A": {
-                        "limit": 50, // 定員
+                        "limit": 1, // 定員
                         "steps": [
                             "https://example.com/presurvey",
                             "https://example.com/test?mode=A",
@@ -46,7 +51,7 @@
                         ]
                     },
                     "group_B": {
-                        "limit": 50,
+                        "limit": 1,
                         "steps": [
                             "https://example.com/presurvey",
                             "https://example.com/test?mode=B",

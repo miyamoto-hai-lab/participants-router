@@ -66,19 +66,29 @@ class RouterService
         $conditions = $config['conditions'];
         $assignmentStrategy = $config['assignment_strategy'] ?? 'minimum_count';
         
-        // 各群の現在人数(完了 + 3分以内アクティブ)を集計
-        $activeLimit = (new \DateTime())->modify('-3 minutes');
+        // 各群の現在人数(完了 + アクティブ)を集計
+        $heartbeatInterval = $config['heartbeat_intervalsec'] ?? 180;
+        $activeLimit = null;
+        if ($heartbeatInterval >= 1) {
+            // modify() needs string like "-180 seconds"
+            $activeLimit = (new \DateTime())->modify("-{$heartbeatInterval} seconds");
+        }
         
         $counts = [];
         foreach (array_keys($conditions) as $group) {
-            $count = Participant::where('experiment_id', $experimentId)
-                ->where('condition_group', $group)
-                ->where(function ($query) use ($activeLimit) {
-                    $query->where('status', 'completed')
+            $query = Participant::where('experiment_id', $experimentId)
+                ->where('condition_group', $group);
+
+            // ハートビート有効時のみ、完了 or 生存でフィルタリング
+            // (無効時は全件カウント)
+            if ($activeLimit) {
+                $query->where(function ($q) use ($activeLimit) {
+                    $q->where('status', 'completed')
                           ->orWhere('last_heartbeat', '>=', $activeLimit);
-                })
-                ->count();
-            $counts[$group] = $count;
+                });
+            }
+
+            $counts[$group] = $query->count();
         }
 
         // 割り当て可能なグループを探す
