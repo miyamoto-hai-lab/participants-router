@@ -24,24 +24,25 @@
                 "access_control": {
                     "deny_redirect": "https://example.com/sorry",
                     "rules": [
-                        // worker_idが数字のみで構成されている場合のみ許可 (正規のクラウドワークスIDが入力されていることを確認するなど)
-                        { "type": "regex", "field": "worker_id", "pattern": "\\d+", "action": "allow" },
-                        // worker_idがこれまでに実験に参加していない場合のみ許可
-                        { "type": "api",
-                        "url": "https://example.com/api/access_control",
-                        "method": "GET",
-                        "headers": {
-                            "Content-Type": "application/json",
-                            "Authorization": "Bearer your_api_key"
-                        },
-                        "body": {
-                            "experiment_id": "test_experiment",
-                            "browser_id": "browser_id",
-                            "metadata": {
-                                "worker_id": "worker_id"
-                            }
-                        },
-                        "action": "allow" }
+                        // アクセスの許可/拒否のルールを定義します．複数のルールはANDで評価されます．
+                        // 例1: worker_idが数字のみで構成されている場合のみ許可 (正規のクラウドワークスIDが入力されていることを確認するなど)
+                        { "type": "regex", "field": "worker_id", "pattern": "\\d+", "action": "allow" }, // patternにマッチする場合に参加を許可する．falseの時拒否．
+                        // 例2: worker_idがこれまでに実験に参加していない場合のみ許可
+                        { 
+                            "type": "api",
+                            "url": "https://example.com/api/is_in_database",
+                            "method": "POST", // "GET"または"POST"を指定できます
+                            "headers": {
+                                "Authorization": "Bearer xxxxxxxxx"
+                            },
+                            // methodがPOSTの場合のみ
+                            "body": {
+                                "experiment_id": "previous_experiment",
+                                "browser_id": "${browser_id}",
+                                "worker_id": "${worker_id}"
+                            },
+                            "action": "deny"  // "return": trueのとき参加を拒否する．falseの時は許可．
+                        }
                     ]
                 },
 
@@ -54,20 +55,21 @@
                 // ハートビート間隔 (秒)
                 // この時間を過ぎると離脱とみなされ、枠が解放されます。
                 // 1未満を設定すると、ハートビートによる離脱判定を行いません(一度割り当てられたら枠を占有し続けます)。
-                "heartbeat_intervalsec": 60,
+                "heartbeat_intervalsec": 180,
 
                 // 条件定義
                 "conditions": {
                     "group_A": {
-                        "limit": 1, // 定員
+                        "limit": 50, // 定員
                         "steps": [
+                            // 被験者がアクセスすべきURLを順番に指定します
                             "https://example.com/presurvey",
                             "https://example.com/test?mode=A",
                             "https://example.com/debrief"
                         ]
                     },
                     "group_B": {
-                        "limit": 1,
+                        "limit": 50,
                         "steps": [
                             "https://example.com/presurvey",
                             "https://example.com/test?mode=B",
