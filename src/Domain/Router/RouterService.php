@@ -41,6 +41,8 @@ class RouterService
 
         if ($participant) {
             $this->logger->info("Resume participant: $browserId");
+            $participant->last_heartbeat = new \DateTime(); // ついでに生存更新
+            $participant->save();
             return $this->getCurrentStepResponse($participant, $config);
         }
 
@@ -74,10 +76,13 @@ class RouterService
             $activeLimit = (new \DateTime())->modify("-{$heartbeatInterval} seconds");
         }
         
-        $counts = [];
+        $active_counts = [];
+        $total_counts = [];
         foreach (array_keys($conditions) as $group) {
             $query = Participant::where('experiment_id', $experimentId)
                 ->where('condition_group', $group);
+            // total_countsの計算
+            $total_counts[$group] = $query->count();
 
             // ハートビート有効時のみ、完了 or 生存でフィルタリング
             // (無効時は全件カウント)
@@ -86,16 +91,21 @@ class RouterService
                     $q->where('status', 'completed')
                           ->orWhere('last_heartbeat', '>=', $activeLimit);
                 });
+                $active_counts[$group] = $query->count();
+            } else {
+                $active_counts[$group] = $total_counts[$group];
             }
-
-            $counts[$group] = $query->count();
         }
 
         // 割り当て可能なグループを探す
         $candidates = [];
         foreach ($conditions as $group => $condConfig) {
-            if ($counts[$group] < $condConfig['limit']) {
-                $candidates[] = $group;
+            if ($active_counts[$group] < $condConfig['limit']) {
+                $candidates[] = [
+                    "group" => $group,
+                    "active_count" => $active_counts[$group],
+                    "total_count" => $total_counts[$group]
+                ];
             }
         }
 
@@ -112,11 +122,19 @@ class RouterService
         $targetGroup = null;
         if ($assignmentStrategy === 'minimum_count') {
             // 候補の中で一番人数が少ないものを選ぶ
-            usort($candidates, fn($a, $b) => $counts[$a] <=> $counts[$b]);
-            $targetGroup = $candidates[0];
+            usort($candidates, function($a, $b) {
+                // active_count が異なる場合は active_count で比較
+                $cmp1 = $a['active_count'] <=> $b['active_count'];
+                if ($cmp1 !== 0) {
+                    return $cmp1;
+                }
+                // 同点の場合は total_count で比較
+                return $a['total_count'] <=> $b['total_count'];
+            });
+            $targetGroup = $candidates[0]['group'];
         } else {
             // ランダム
-            $targetGroup = $candidates[array_rand($candidates)];
+            $targetGroup = $candidates[array_rand($candidates)]['group'];
         }
 
         // 5. 保存
