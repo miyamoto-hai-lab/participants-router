@@ -17,7 +17,6 @@ class Participant extends Model
     protected $fillable = [
         'experiment_id',
         'browser_id',
-        'worker_id',
         'condition_group',
         'current_step_index',
         'status',

@@ -50,6 +50,7 @@ class RouterService
         if (isset($config['access_control']['rules'])) {
             foreach ($config['access_control']['rules'] as $rule) {
                 if ($rule['type'] === 'regex') {
+                    // metadata (properties) から値を取得して検証
                     $val = $properties[$rule['field']] ?? '';
                     if (preg_match('/' . $rule['pattern'] . '/', (string)$val)) {
                         if ($rule['action'] === 'deny') {
@@ -143,7 +144,7 @@ class RouterService
         // $participant->setTable($this->tableName);
         $participant->experiment_id = $experimentId;
         $participant->browser_id = $browserId;
-        $participant->worker_id = $properties['worker_id'] ?? null;
+        // $participant->worker_id = $properties['worker_id'] ?? null; // Removed check logic uses metadata
         $participant->condition_group = $targetGroup;
         $participant->current_step_index = 0;
         $participant->status = 'assigned';

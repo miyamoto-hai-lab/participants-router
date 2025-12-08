@@ -24,8 +24,24 @@
                 "access_control": {
                     "deny_redirect": "https://example.com/sorry",
                     "rules": [
-                        // test_ で始まるworker_idは拒否する例
-                        { "type": "regex", "field": "worker_id", "pattern": "^test_.*", "action": "deny" }
+                        // worker_idが数字のみで構成されている場合のみ許可 (正規のクラウドワークスIDが入力されていることを確認するなど)
+                        { "type": "regex", "field": "worker_id", "pattern": "\\d+", "action": "allow" },
+                        // worker_idがこれまでに実験に参加していない場合のみ許可
+                        { "type": "api",
+                        "url": "https://example.com/api/access_control",
+                        "method": "GET",
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer your_api_key"
+                        },
+                        "body": {
+                            "experiment_id": "test_experiment",
+                            "browser_id": "browser_id",
+                            "metadata": {
+                                "worker_id": "worker_id"
+                            }
+                        },
+                        "action": "allow" }
                     ]
                 },
 

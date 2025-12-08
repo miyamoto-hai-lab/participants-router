@@ -62,12 +62,11 @@ if (!Capsule::schema()->hasTable($tableName)) {
         $table->id();
         $table->string('experiment_id')->index();
         $table->string('browser_id')->unique(); // browser_idはユニーク
-        $table->string('worker_id')->nullable()->index();
         $table->string('condition_group');
         $table->integer('current_step_index')->default(0);
         $table->string('status')->default('assigned'); // assigned, completed
         $table->timestamp('last_heartbeat')->useCurrent();
-        $table->text('metadata')->nullable();
+        $table->json('metadata')->nullable();
         $table->timestamps();
     });
     echo "Table '$tableName' created successfully.\n";
