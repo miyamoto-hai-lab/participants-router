@@ -1,4 +1,5 @@
 {
+    "$schema": "./config.schema.json",
     // ベースパスの設定 (例: "/~keimag/router" や "/router")
     // 空の場合は自動検知を試みます
     "base_path": "",
@@ -22,14 +23,14 @@
             "config": {
                 // アクセス制御
                 "access_control": {
-                    "deny_redirect": "https://example.com/sorry",
+                    "default_action": "allow",
                     "rules": [
-                        // アクセスの許可/拒否のルールを定義します．複数のルールはANDで評価されます．
+                        // アクセスの許可/拒否のルールを定義します．ルールは上から順に評価され，どれにも当てはまらない場合にはdefault_actionが適用されます．
                         // 例1: worker_idが数字のみで構成されている場合のみ許可 (正規のクラウドワークスIDが入力されていることを確認するなど)
                         { "type": "regex", "field": "worker_id", "pattern": "\\d+", "action": "allow" }, // patternにマッチする場合に参加を許可する．falseの時拒否．
                         // 例2: worker_idがこれまでに実験に参加していない場合のみ許可
                         { 
-                            "type": "api",
+                            "type": "fetch",
                             "url": "https://example.com/api/is_in_database",
                             "method": "POST", // "GET"または"POST"を指定できます
                             "headers": {
@@ -39,15 +40,16 @@
                             "body": {
                                 "experiment_id": "previous_experiment",
                                 "browser_id": "${browser_id}",
-                                "worker_id": "${worker_id}"
+                                "worker_id": "${worker_id}" // participants-routerのリクエストボディのpropetiesのキーを使用できます
                             },
-                            "action": "deny"  // "return": trueのとき参加を拒否する．falseの時は許可．
+                            "action": "deny"
                         }
-                    ]
+                    ],
+                    "deny_redirect": "https://example.com/sorry"
                 },
 
                 // 割り当て戦略: "minimum_count" (均等) or "random"
-                "assignment_strategy": "minimum_count",
+                "assignment_strategy": "minimum",
                 
                 // 満員時のリダイレクト先
                 "fallback_url": "https://example.com/sorry",

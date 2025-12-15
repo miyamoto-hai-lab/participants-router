@@ -1,0 +1,328 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "participants-router設定ファイル",
+  "type": "object",
+  "required": [
+    "database",
+    "experiments"
+  ],
+  "properties": {
+    "base_path": {
+      "type": "string",
+      "description": "ベースパスの設定 (例: \"/~keimag/router\" や \"/router\") 空の場合は自動検知を試みます",
+      "default": ""
+    },
+    "database": {
+      "type": "object",
+      "description": "データベース設定",
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "データベースの接続先URL (例: sqlite//./test.db)",
+          "examples": [
+            "sqlite//./test.db"
+          ]
+        },
+        "table": {
+          "type": "string",
+          "description": "テーブル名(participants-routerが使うテーブルを変更したい場合)",
+          "default": "participants_routes"
+        }
+      }
+    },
+    "experiments": {
+      "type": "object",
+      "description": "実験設定のコレクション。キーは実験ID。",
+      "patternProperties": {
+        "^.*$": {
+          "type": "object",
+          "description": "実験名(ID)",
+          "required": [
+            "enable",
+            "config"
+          ],
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "この実験を有効にするかどうか (終了した実験はfalseに設定するとルーティングされません)"
+            },
+            "config": {
+              "$ref": "#/definitions/ExperimentConfig"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ExperimentConfig": {
+      "type": "object",
+      "description": "ルーティングの基本設定",
+      "required": [
+        "access_control",
+        "fallback_url",
+        "conditions"
+      ],
+      "properties": {
+        "access_control": {
+          "type": "object",
+          "description": "アクセス制限設定",
+          "default": {
+            "default_action": "allow",
+            "rules": []
+          },
+          "required": [
+            "default_action",
+            "deny_redirect",
+            "rules"
+          ],
+          "properties": {
+            "default_action": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "deny"
+              ],
+              "description": "ルールにマッチしない場合に参加を許可するかどうか"
+            },
+            "deny_redirect": {
+              "type": "string",
+              "format": "uri",
+              "description": "参加を拒否した場合のリダイレクト先URL"
+            },
+            "rules": {
+              "type": "array",
+              "description": "参加制限ルールの配列",
+              "items": {
+                "$ref": "#/definitions/AccessControlRule"
+              }
+            }
+          }
+        },
+        "assignment_strategy": {
+          "type": "string",
+          "enum": [
+            "minimum",
+            "random"
+          ],
+          "default": "minimum",
+          "description": "参加者の割り当て戦略 (minimum: 現時点で参加者が最も少ない条件に割り当てる, random: 現時点で空いている条件にランダムで割り当てる)"
+        },
+        "fallback_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "参加者が満員になった場合のフォールバック用URL"
+        },
+        "heartbeat_intervalsec": {
+          "type": "integer",
+          "description": "参加者を作業中とみなすHeartbeatの間隔(秒)。0にするとルーティング時に途中離脱を考慮しない。",
+          "default": 60
+        },
+        "conditions": {
+          "type": "object",
+          "description": "実験の条件定義",
+          "patternProperties": {
+            "^.*$": {
+              "$ref": "#/definitions/Condition",
+              "description": "実験条件名(ID)"
+            }
+          }
+        }
+      }
+    },
+    "Condition": {
+      "type": "object",
+      "required": [
+        "limit",
+        "steps"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "参加人数制限"
+        },
+        "steps": {
+          "type": "array",
+          "description": "実験のステップ配列",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uri",
+                "description": "簡易記法: URL文字列のみ"
+              },
+              {
+                "$ref": "#/definitions/StepObject"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "StepObject": {
+      "type": "object",
+      "description": "実験のステップ定義",
+      "required": [
+        "id",
+        "url"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ステップID．遷移先指定などで使用。"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "ステップのURL"
+        },
+        "transitions": {
+          "type": "array",
+          "description": "条件分岐ルール",
+          "items": {
+            "$ref": "#/definitions/TransitionRule"
+          }
+        }
+      }
+    },
+    "RuleBase": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "regex",
+            "fetch"
+          ],
+          "description": "ルールの種類"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "regex"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "field",
+              "pattern"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "リクエストボディのpropertiesオブジェクトのキー名"
+              },
+              "pattern": {
+                "type": "string",
+                "description": "正規表現パターン"
+              },
+              "negate": {
+                "type": "boolean",
+                "description": "trueにすると，「正規表現にマッチしない」場合に設定を適用する",
+                "default": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "fetch"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "問い合わせ先APIのURL (プレースホルダ: ${browser_id}, ${properties.key})"
+              },
+              "method": {
+                "type": "string",
+                "description": "問い合わせ先APIのHTTPリクエストメソッド",
+                "enum": [
+                  "GET",
+                  "POST"
+                ],
+                "default": "GET"
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "リクエストヘッダー (プレースホルダ: ${browser_id}, ${properties.key})"
+              },
+              "body": {
+                "type": "object",
+                "description": "POST時のリクエストボディ (GETの時は無視されます) (プレースホルダ: ${browser_id}, ${properties.key})"
+              },
+              "negate": {
+                "type": "boolean",
+                "description": "trueにすると，「APIの結果がfalse」の場合に設定を適用する",
+                "default": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AccessControlRule": {
+      "description": "アクセス制御ルール",
+      "allOf": [
+        {
+          "$ref": "#/definitions/RuleBase"
+        },
+        {
+          "type": "object",
+          "required": [
+            "action"
+          ],
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "deny"
+              ],
+              "description": "条件合致時のアクション"
+            }
+          }
+        }
+      ]
+    },
+    "TransitionRule": {
+      "description": "ステップ遷移ルール",
+      "allOf": [
+        {
+          "$ref": "#/definitions/RuleBase"
+        },
+        {
+          "type": "object",
+          "required": [
+            "goto"
+          ],
+          "properties": {
+            "goto": {
+              "type": "string",
+              "description": "遷移先のステップID"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

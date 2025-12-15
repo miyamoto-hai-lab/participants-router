@@ -46,14 +46,58 @@ class RouterService
             return $this->getCurrentStepResponse($participant, $config);
         }
 
-        // 3. Access Control (簡易実装: 正規表現チェック)
+        // 3. Access Control
         if (isset($config['access_control']['rules'])) {
             foreach ($config['access_control']['rules'] as $rule) {
                 if ($rule['type'] === 'regex') {
+                    $negate = $rule['negate'] ?? false;
                     // metadata (properties) から値を取得して検証
                     $val = $properties[$rule['field']] ?? '';
-                    if (preg_match('/' . $rule['pattern'] . '/', (string)$val)) {
-                        if ($rule['action'] === 'deny') {
+                    $matched = preg_match('/' . $rule['pattern'] . '/', (string)$val);
+                    if ($negate) {
+                        $matched = !$matched;
+                    }
+                    if ($matched) {
+                        if ($rule['action'] === 'allow') {
+                            break;
+                        } else {
+                            return [
+                                'status' => 'ok',
+                                'url' => $config['access_control']['deny_redirect'] ?? null,
+                                'message' => 'Access denied'
+                            ];
+                        }
+                    }
+                } elseif ($rule['type'] === 'fetch') {
+                    $url = $rule['url'];
+                    $method = $rule['method'] ?? 'GET';
+                    $headers = $rule['headers'] ?? [];
+                    $headers['Content-Type'] = 'application/json';
+                    $body = $rule['body'] ?? [];
+                    $negate = $rule['negate'] ?? false;
+
+                    $ch = curl_init($url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+
+                    if ($httpCode > 500 && $httpCode < 600) {
+                        continue;
+                    }
+
+                    // response jsonの"return"で判定
+                    $return = json_decode($response, true);
+                    if ($negate) {
+                        $return = !$return;
+                    }
+                    if ($return['return']) {
+                        if ($rule['action'] === 'allow') {
+                            break;
+                        } else {
                             return [
                                 'status' => 'ok',
                                 'url' => $config['access_control']['deny_redirect'] ?? null,
@@ -70,7 +114,7 @@ class RouterService
         $assignmentStrategy = $config['assignment_strategy'] ?? 'minimum_count';
         
         // 各群の現在人数(完了 + アクティブ)を集計
-        $heartbeatInterval = $config['heartbeat_intervalsec'] ?? 180;
+        $heartbeatInterval = $config['heartbeat_intervalsec'] ?? 0;
         $activeLimit = null;
         if ($heartbeatInterval >= 1) {
             // modify() needs string like "-180 seconds"
@@ -121,7 +165,7 @@ class RouterService
 
         // 最小割り当て戦略
         $targetGroup = null;
-        if ($assignmentStrategy === 'minimum_count') {
+        if ($assignmentStrategy === 'minimum') {
             // 候補の中で一番人数が少ないものを選ぶ
             usort($candidates, function($a, $b) {
                 // active_count が異なる場合は active_count で比較
