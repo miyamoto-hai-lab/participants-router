@@ -69,11 +69,11 @@ class RouterService
                         }
                     }
                 } elseif ($rule['type'] === 'fetch') {
-                    $url = $rule['url'];
+                    $url = $this->resolvePlaceholders($rule['url'], $properties);
                     $method = $rule['method'] ?? 'GET';
-                    $headers = $rule['headers'] ?? [];
+                    $headers = $this->resolvePlaceholders($rule['headers'] ?? [], $properties);
                     $headers['Content-Type'] = 'application/json';
-                    $body = $rule['body'] ?? [];
+                    $body = $this->resolvePlaceholders($rule['body'] ?? [], $properties);
                     $negate = $rule['negate'] ?? false;
 
                     $ch = curl_init($url);
@@ -89,12 +89,19 @@ class RouterService
                         continue;
                     }
 
-                    // response jsonの"return"で判定
-                    $return = json_decode($response, true);
+                    $json = json_decode($response, true);
+                    
+                    if ($json && isset($json['return'])) {
+                        // returnフィールドがある場合は jsonの"return"で判定
+                        $return = ['return' => (bool)$json['return']];
+                    } else {
+                        // 結果がJSONではないまたはreturnフィールドがない場合はHTTPステータスコードで判定
+                        $return = ['return' => ($httpCode >= 200 && $httpCode < 300)];
+                    }
                     if ($negate) {
                         $return = !$return;
                     }
-                    if ($return['return']) {
+                    if ($return) {
                         if ($rule['action'] === 'allow') {
                             break;
                         } else {
@@ -282,5 +289,16 @@ class RouterService
             'url' => $url,
             'message' => null
         ];
+    }
+
+    /** 
+     * ${propertiesのキー}形式のプレースホルダーを解決するヘルパー
+     */
+    private function resolvePlaceholders(string $template, array $properties): string
+    {
+        return preg_replace_callback('/\$\{([^}]+)\}/', function ($matches) use ($properties) {
+            $key = $matches[1];
+            return $properties[$key] ?? $matches[0]; // 見つからなければそのまま返す
+        }, $template);
     }
 }
