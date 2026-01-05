@@ -291,14 +291,27 @@ class RouterService
         ];
     }
 
-    /** 
-     * ${propertiesのキー}形式のプレースホルダーを解決するヘルパー
+    /** * ${propertiesのキー}形式のプレースホルダーを解決するヘルパー
      */
-    private function resolvePlaceholders(string $template, array $properties): string
+    private function resolvePlaceholders($input, array $properties)
     {
+        // 配列の場合は再帰的に処理
+        if (is_array($input)) {
+            $result = [];
+            foreach ($input as $key => $value) {
+                $result[$key] = $this->resolvePlaceholders($value, $properties);
+            }
+            return $result;
+        }
+
+        // 文字列でない場合はそのまま返す
+        if (!is_string($input)) {
+            return $input;
+        }
+
+        // 文字列の場合はプレースホルダーを置換
         return preg_replace_callback('/\$\{([^}]+)\}/', function ($matches) use ($properties) {
             $key = $matches[1];
-            return $properties[$key] ?? $matches[0]; // 見つからなければそのまま返す
-        }, $template);
-    }
-}
+            return (string)($properties[$key] ?? $matches[0]);
+        }, $input);
+    }}
