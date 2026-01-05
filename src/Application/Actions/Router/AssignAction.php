@@ -33,7 +33,7 @@ class AssignAction extends Action
         }
 
         if (!$experimentId || !$browserId) {
-            return $this->respondWithData(['status' => 'error', 'message' => 'Missing parameters'], 400);
+            return $this->respondWithData(['status' => 'error', 'message' => 'Missing parameters (\'Content-Type\' header, experiment_id or browser_id)'], 400);
         }
 
         $result = $this->routerService->assign($experimentId, $browserId, $properties);
