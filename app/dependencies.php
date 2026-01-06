@@ -36,9 +36,45 @@ return function (ContainerBuilder $containerBuilder) {
             $tableName = $settings->get('db_table'); // 設定からテーブル名を取得
 
             $capsule = new Capsule;
+
+            // 1. SQLiteのファイル自動作成
+            if (($dbConfig['driver'] ?? '') === 'sqlite') {
+                 $databasePath = $dbConfig['database'] ?? null;
+                 if ($databasePath && !file_exists($databasePath)) {
+                     try {
+                         $dir = dirname($databasePath);
+                         if (!is_dir($dir)) {
+                             mkdir($dir, 0777, true);
+                         }
+                         file_put_contents($databasePath, '');
+                         // ログ等はここでは出せないかも (Logger構築中 or 依存関係)
+                     } catch (\Exception $e) {
+                         // エラー処理: ログに出すか、dieするか
+                         error_log("Failed to create sqlite database: " . $e->getMessage());
+                     }
+                 }
+            }
+
             $capsule->addConnection($dbConfig);
             $capsule->setAsGlobal();
             $capsule->bootEloquent();
+
+            // 2. テーブル自動作成
+            if ($tableName && !Capsule::schema()->hasTable($tableName)) {
+                Capsule::schema()->create($tableName, function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->id();
+                    $table->string('experiment_id')->index();
+                    $table->string('browser_id');
+                    $table->unique(['experiment_id', 'browser_id'], 'participants_unique_entry');
+                    $table->string('condition_group');
+                    $table->integer('current_step_index')->default(0);
+                    $table->string('status')->default('assigned'); // assigned, completed
+                    $table->timestamp('last_heartbeat')->useCurrent();
+                    $table->json('metadata')->nullable();
+                    $table->timestamps();
+                });
+            }
+
             // ここでModelにテーブル名を注入
             if ($tableName) {
                 Participant::setGlobalTableName($tableName);
