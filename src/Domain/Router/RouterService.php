@@ -44,103 +44,44 @@ class RouterService
 
         if ($participant) {
             $this->logger->info("Resume participant: $browserId");
-            $participant->last_heartbeat = new \DateTime(); // ついでに生存更新
+            $participant->last_heartbeat = new \DateTime();
             $participant->save();
             return $this->getCurrentStepResponse($participant, $config);
         }
 
         // 3. Access Control
-        if (isset($config['access_control']['rules'])) {
-            foreach ($config['access_control']['rules'] as $rule) {
-                if ($rule['type'] === 'regex') {
-                    $negate = $rule['negate'] ?? false;
-                    // metadata (properties) から値を取得して検証
-                    $val = $properties[$rule['field']] ?? '';
-                    $matched = preg_match('/' . $rule['pattern'] . '/', (string)$val);
-                    if ($negate) {
-                        $matched = !$matched;
-                    }
-                    if ($matched) {
-                        if ($rule['action'] === 'allow') {
-                            break;
-                        } else {
-                            return [
-                                'status' => 'ok',
-                                'url' => $config['access_control']['deny_redirect'] ?? null,
-                                'message' => 'Access denied'
-                            ];
-                        }
-                    }
-                } elseif ($rule['type'] === 'fetch') {
-                    $url = $this->resolvePlaceholders($rule['url'], $properties);
-                    $method = $rule['method'] ?? 'GET';
-                    $headers = $this->resolvePlaceholders($rule['headers'] ?? [], $properties);
-                    $headers['Content-Type'] = 'application/json';
-                    $body = $this->resolvePlaceholders($rule['body'] ?? [], $properties);
-                    $negate = $rule['negate'] ?? false;
+        if (isset($config['access_control']['condition'])) {
+            // 条件ツリーを評価 (true = 許可, false = 拒否)
+            $isAllowed = $this->evaluateCondition($config['access_control']['condition'], $properties);
 
-                    $ch = curl_init($url);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-                    $response = curl_exec($ch);
-                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    curl_close($ch);
-
-                    if ($httpCode > 500 && $httpCode < 600) {
-                        continue;
-                    }
-
-                    $json = json_decode($response, true);
-                    
-                    if ($json && isset($json['return'])) {
-                        // returnフィールドがある場合は jsonの"return"で判定
-                        $return = ['return' => (bool)$json['return']];
-                    } else {
-                        // 結果がJSONではないまたはreturnフィールドがない場合はHTTPステータスコードで判定
-                        $return = ['return' => ($httpCode >= 200 && $httpCode < 300)];
-                    }
-                    if ($negate) {
-                        $return = !$return;
-                    }
-                    if ($return) {
-                        if ($rule['action'] === 'allow') {
-                            break;
-                        } else {
-                            return [
-                                'status' => 'ok',
-                                'url' => $config['access_control']['deny_redirect'] ?? null,
-                                'message' => 'Access denied'
-                            ];
-                        }
-                    }
-                }
+            if (!$isAllowed) {
+                return [
+                    'status' => 'ok',
+                    'url' => $config['access_control']['deny_redirect'] ?? null,
+                    'message' => 'Access denied'
+                ];
             }
         }
 
         // 4. ルーティング (ハートビート & ハードキャップ)
-        $conditions = $config['conditions'];
+        $groups = $config['groups'];
         $assignmentStrategy = $config['assignment_strategy'] ?? 'minimum_count';
         
         // 各群の現在人数(完了 + アクティブ)を集計
         $heartbeatInterval = $config['heartbeat_intervalsec'] ?? 0;
         $activeLimit = null;
         if ($heartbeatInterval >= 1) {
-            // modify() needs string like "-180 seconds"
             $activeLimit = (new \DateTime())->modify("-{$heartbeatInterval} seconds");
         }
         
         $active_counts = [];
         $total_counts = [];
-        foreach (array_keys($conditions) as $group) {
+        foreach (array_keys($groups) as $group) {
             $query = Participant::where('experiment_id', $experimentId)
                 ->where('condition_group', $group);
-            // total_countsの計算
+            
             $total_counts[$group] = $query->count();
 
-            // ハートビート有効時のみ、完了 or 生存でフィルタリング
-            // (無効時は全件カウント)
             if ($activeLimit) {
                 $query->where(function ($q) use ($activeLimit) {
                     $q->where('status', 'completed')
@@ -154,7 +95,7 @@ class RouterService
 
         // 割り当て可能なグループを探す
         $candidates = [];
-        foreach ($conditions as $group => $condConfig) {
+        foreach ($groups as $group => $condConfig) {
             if ($active_counts[$group] < $condConfig['limit']) {
                 $candidates[] = [
                     "group" => $group,
@@ -165,7 +106,6 @@ class RouterService
         }
 
         if (empty($candidates)) {
-            // 満員
             return [
                 'status' => 'ok', 
                 'url' => $config['fallback_url'], 
@@ -173,32 +113,25 @@ class RouterService
             ];
         }
 
-        // 最小割り当て戦略
+        // 割り当て戦略
         $targetGroup = null;
         if ($assignmentStrategy === 'minimum') {
-            // 候補の中で一番人数が少ないものを選ぶ
             usort($candidates, function($a, $b) {
-                // active_count が異なる場合は active_count で比較
                 $cmp1 = $a['active_count'] <=> $b['active_count'];
                 if ($cmp1 !== 0) {
                     return $cmp1;
                 }
-                // 同点の場合は total_count で比較
                 return $a['total_count'] <=> $b['total_count'];
             });
             $targetGroup = $candidates[0]['group'];
         } else {
-            // ランダム
             $targetGroup = $candidates[array_rand($candidates)]['group'];
         }
 
         // 5. 保存
         $participant = new Participant();
-        // log_error($this->tableName);
-        // $participant->setTable($this->tableName);
         $participant->experiment_id = $experimentId;
         $participant->browser_id = $browserId;
-        // $participant->worker_id = $properties['worker_id'] ?? null; // Removed check logic uses metadata
         $participant->condition_group = $targetGroup;
         $participant->current_step_index = 0;
         $participant->status = 'assigned';
@@ -206,6 +139,101 @@ class RouterService
         $participant->save();
 
         return $this->getCurrentStepResponse($participant, $config);
+    }
+
+    /**
+     * 条件ツリーを再帰的に評価する
+     */
+    private function evaluateCondition(array $condition, array $properties): bool
+    {
+        // ALL_OF (AND)
+        if (isset($condition['all_of'])) {
+            foreach ($condition['all_of'] as $subCondition) {
+                // 一つでもfalseなら全体としてfalse (短絡評価)
+                if (!$this->evaluateCondition($subCondition, $properties)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // ANY_OF (OR)
+        if (isset($condition['any_of'])) {
+            foreach ($condition['any_of'] as $subCondition) {
+                // 一つでもtrueなら全体としてtrue (短絡評価)
+                if ($this->evaluateCondition($subCondition, $properties)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // NOT
+        if (isset($condition['not'])) {
+            return !$this->evaluateCondition($condition['not'], $properties);
+        }
+
+        // 末端のルール評価
+        return $this->checkRule($condition, $properties);
+    }
+
+    /**
+     * 個別のルール(Regex, Fetch)を評価する
+     */
+    private function checkRule(array $rule, array $properties): bool
+    {
+        $type = $rule['type'] ?? '';
+        $result = false;
+
+        if ($type === 'regex') {
+            $val = $properties[$rule['field']] ?? '';
+            $result = (bool)preg_match('/' . $rule['pattern'] . '/', (string)$val);
+        
+        } elseif ($type === 'fetch') {
+            $url = $this->resolvePlaceholders($rule['url'], $properties);
+            $method = $rule['method'] ?? 'GET';
+            $headers = $this->resolvePlaceholders($rule['headers'] ?? [], $properties);
+            $headers['Content-Type'] = 'application/json';
+            $body = $this->resolvePlaceholders($rule['body'] ?? [], $properties);
+            $expectedStatus = $rule['expected_status'] ?? null; // ステータスコード指定があれば優先
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+            // タイムアウト設定などを入れたほうが安全
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10); 
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            // サーバーエラー系は一律false (拒否) とする運用の場合
+            if ($httpCode >= 500) {
+                return false; 
+            }
+
+            if ($expectedStatus) {
+                // ステータスコードが指定値と一致するか
+                $result = ($httpCode == $expectedStatus);
+            } else {
+                // JSONレスポンスのチェック (後方互換性のため)
+                $json = json_decode($response, true);
+                if ($json && isset($json['return'])) {
+                    $result = (bool)$json['return'];
+                } else {
+                    $result = ($httpCode >= 200 && $httpCode < 300);
+                }
+            }
+        }
+
+        // ルール単体に "negate": true がある場合の反転処理
+        // (notラッパーを使わずに単体ルールで反転したい場合のサポート)
+        if (!empty($rule['negate'])) {
+            return !$result;
+        }
+
+        return $result;
     }
 
     /**
@@ -224,7 +252,7 @@ class RouterService
         if (!$participant) return ['status' => 'error', 'message' => 'Participant not found'];
 
         // 現在のステップ情報を取得
-        $groupConfig = $config['conditions'][$participant->condition_group];
+        $groupConfig = $config['groups'][$participant->condition_group];
         $steps = $groupConfig['steps'];
         $currentIndex = $participant->current_step_index;
 
@@ -270,7 +298,7 @@ class RouterService
     private function getCurrentStepResponse(Participant $participant, array $config): array
     {
         $group = $participant->condition_group;
-        $steps = $config['conditions'][$group]['steps'];
+        $steps = $config['groups'][$group]['steps'];
         $index = $participant->current_step_index;
 
         if (!isset($steps[$index])) {
