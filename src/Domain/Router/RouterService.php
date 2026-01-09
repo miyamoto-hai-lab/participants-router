@@ -32,6 +32,9 @@ class RouterService
         if (!isset($experiments[$experimentId])) {
             return ['status' => 'error', 'message' => 'Experiment ID not found'];
         }
+        if (!$experiments[$experimentId]["enable"]) {
+            return ['status' => 'error', 'message' => 'Experiment is disabled'];
+        }
         $config = $experiments[$experimentId]['config'];
 
         // 2. 既存参加者の確認 (レジューム機能)
