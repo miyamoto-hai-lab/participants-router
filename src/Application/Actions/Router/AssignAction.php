@@ -24,7 +24,7 @@ class AssignAction extends Action
         $data = $this->getFormData();
 
         $experimentId = $data['experiment_id'] ?? null;
-        $browserId = $data['browser_id'] ?? null; // ここでbrowser_idを受け取る
+        $participantId = $data['participant_id'] ?? null; // ここでparticipant_idを受け取る
         $properties = $data['properties'] ?? [];
 
         // worker_idがトップレベルにあればpropertiesに入れる
@@ -32,10 +32,10 @@ class AssignAction extends Action
             $properties['worker_id'] = $data['worker_id'];
         }
 
-        if (!$experimentId || !$browserId) {
+        if (!$experimentId || !$participantId) {
             $missingParameters = array_keys(array_filter([
                 'experiment_id' => $experimentId,
-                'browser_id' => $browserId,
+                'participant_id' => $participantId,
             ], fn($value) => empty($value)));
             return $this->respondWithData([
                 'status' => 'error',
@@ -43,7 +43,7 @@ class AssignAction extends Action
             ], 400);
         }
 
-        $result = $this->routerService->assign($experimentId, $browserId, $properties);
+        $result = $this->routerService->assign($experimentId, $participantId, $properties);
 
         if (isset($result['data']) && isset($result['statusCode'])) {
             return $this->respondWithData($result['data'], $result['statusCode']);

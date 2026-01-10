@@ -13,13 +13,13 @@ class ParticipantTest extends TestCase
     {
         $participant = new Participant([
             'experiment_id' => 'exp_1',
-            'browser_id' => 'browser_1',
+            'participant_id' => 'participant_1',
             'condition_group' => 'A',
             'status' => 'assigned'
         ]);
 
         $this->assertEquals('exp_1', $participant->experiment_id);
-        $this->assertEquals('browser_1', $participant->browser_id);
+        $this->assertEquals('participant_1', $participant->participant_id);
         $this->assertEquals('A', $participant->condition_group);
         $this->assertEquals('assigned', $participant->status);
     }
@@ -28,7 +28,7 @@ class ParticipantTest extends TestCase
     {
         $participant = new Participant([
             'experiment_id' => 'exp_1',
-            'browser_id' => 'browser_1',
+            'participant_id' => 'participant_1',
             'condition_group' => 'A',
             'status' => 'assigned',
             'properties' => ['age' => 25]
@@ -38,7 +38,7 @@ class ParticipantTest extends TestCase
         $data = json_decode($json, true);
 
         $this->assertEquals('exp_1', $data['experiment_id']);
-        $this->assertEquals('browser_1', $data['browser_id']);
+        $this->assertEquals('participant_1', $data['participant_id']);
          // Note: Accessors might be needed or key mapping depending on Model,
          // but Eloquent usually serializes attributes directly.
     }

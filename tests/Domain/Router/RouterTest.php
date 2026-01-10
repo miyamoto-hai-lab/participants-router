@@ -28,7 +28,7 @@ class RouterTest extends TestCase
         \Illuminate\Database\Capsule\Manager::schema()->create('participants_routes', function ($table) {
             $table->id();
             $table->string('experiment_id');
-            $table->string('browser_id');
+            $table->string('participant_id');
             $table->string('condition_group')->nullable();
             $table->integer('current_step_index')->default(0);
             $table->string('status');
@@ -82,7 +82,7 @@ class RouterTest extends TestCase
         $this->assertNotNull($result['data']['url']);
 
         // Verify DB
-        $participant = Participant::where('browser_id', 'browser_1')->first();
+        $participant = Participant::where('participant_id', 'participant_1')->first();
         $this->assertNotNull($participant);
         $this->assertEquals('exp_1', $participant->experiment_id);
     }

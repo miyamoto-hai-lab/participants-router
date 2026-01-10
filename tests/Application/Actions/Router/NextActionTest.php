@@ -30,7 +30,7 @@ class NextActionTest extends TestCase
         $request = $this->createRequest('POST', '/next');
         $request = $request->withParsedBody([
             'experiment_id' => 'exp_1',
-            'browser_id' => 'browser_1',
+            'participant_id' => 'participant_1',
             'current_url' => 'http://current.com',
             'properties' => ['prop' => 1]
         ]);

@@ -31,7 +31,7 @@ class AssignActionTest extends TestCase
         $request = $this->createRequest('POST', '/assign');
         $request = $request->withParsedBody([
             'experiment_id' => 'exp_1',
-            'browser_id' => 'browser_1',
+            'participant_id' => 'browser_1',
             'properties' => ['age' => 25]
         ]);
         $response = new \Slim\Psr7\Response();

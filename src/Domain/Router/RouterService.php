@@ -23,7 +23,7 @@ class RouterService
     /**
      * 参加割り当て (Assign)
      */
-    public function assign(string $experimentId, string $browserId, array $properties): array
+    public function assign(string $experimentId, string $participantId, array $properties): array
     {
         // 1. 設定の取得
         $experiments = $this->settings->get('experiments');
@@ -43,11 +43,11 @@ class RouterService
 
         // 2. 既存参加者の確認 (レジューム機能)
         $participant = Participant::where('experiment_id', $experimentId)
-            ->where('browser_id', $browserId)
+            ->where('participant_id', $participantId)
             ->first();
 
         if ($participant) {
-            $this->logger->info("Resume participant: $browserId");
+            $this->logger->info("Resume participant: $participantId");
             // ハートビート更新
             $participant->last_heartbeat = new \DateTime();
             $participant->save();
@@ -142,7 +142,7 @@ class RouterService
         // 5. 保存
         $participant = new Participant();
         $participant->experiment_id = $experimentId;
-        $participant->browser_id = $browserId;
+        $participant->participant_id = $participantId;
         $participant->condition_group = $targetGroup;
         $participant->current_step_index = 0;
         $participant->status = 'assigned';
@@ -254,7 +254,7 @@ class RouterService
     /**
      * 次のステップへ (Next)
      */
-    public function next(string $experimentId, string $browserId, string $currentUrl, array $properties): array
+    public function next(string $experimentId, string $participantId, string $currentUrl, array $properties): array
     {
         $experiments = $this->settings->get('experiments');
         $config = $experiments[$experimentId]['config'] ?? null;
@@ -266,7 +266,7 @@ class RouterService
         }
 
         $participant = Participant::where('experiment_id', $experimentId)
-            ->where('browser_id', $browserId)
+            ->where('participant_id', $participantId)
             ->first();
 
         if (!$participant) {
@@ -375,10 +375,10 @@ class RouterService
     /**
      * ハートビート更新
      */
-    public function heartbeat(string $experimentId, string $browserId): void
+    public function heartbeat(string $experimentId, string $participantId): void
     {
         $participant = Participant::where('experiment_id', $experimentId)
-            ->where('browser_id', $browserId)
+            ->where('participant_id', $participantId)
             ->first();
 
         if ($participant) {

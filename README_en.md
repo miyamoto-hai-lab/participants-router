@@ -117,15 +117,15 @@ Checks the value of `properties` sent from the client against a regular expressi
 
 **2. External API Query (`type: fetch`)**
 Sends an HTTP request to an external server and makes a decision based on the result.
-Placeholders in the format `${keyname}` can be used in the URL or Body, which will be replaced by values from `properties` or `browser_id`.
+Placeholders in the format `${keyname}` can be used in the URL or Body, which will be replaced by values from `properties` or `participant_id`.
 
 ```jsonc
 {
     "type": "fetch",
-    "url": "https://api.example.com/check?id=${crowdworks_id}",
+    "url": "https://api.example.com/check?id=${browser_id}",
     "method": "GET", // GET (default) or POST
     // "headers": { "Authorization": "Bearer ..." },
-    // "body": { "id": "${crowdworks_id}" }, // For POST
+    // "body": { "id": "${browser_id}" }, // For POST
     "expected_status": 200 // HTTP status considered a success (default: 200 OK range)
 }
 ```
@@ -140,13 +140,13 @@ Example: Allow only if "CrowdWorks ID is a 7-digit number" **AND** "External API
         "all_of": [
             {
                 "type": "regex",
-                "field": "crowdworks_id",
+                "field": "browser_id",
                 "pattern": "^\\d{7}$"
             },
             {
                 "not": { 
                     "type": "fetch",
-                    "url": "https://api.example.com/check_duplicate/${crowdworks_id}",
+                    "url": "https://api.example.com/check_duplicate/${browser_id}",
                     "expected_status": 200 // If duplicate exists (200), true -> not makes it false (deny)
                 }
             }
@@ -200,17 +200,17 @@ Registers participation in the experiment and retrieves the URL for the first st
 ```jsonc
 {
   "experiment_id": "my_experiment_v1",
-  "browser_id": "unique_client_id_abc123", // ID uniquely identifying the experimental client
+  "participant_id": "unique_client_id_abc123", // ID uniquely identifying the experimental client
   "properties": {
-    "crowdworks_id": "1234567", // Attributes used for access_control, etc.
+    "browser_id": "1234567", // Attributes used for access_control, etc.
     "age": 25
   }
 }
 ```
 
 > [!TIP]
-> **About browser_id**
-> `browser_id` needs to be unique among experimental clients and recoverable upon re-access.
+> **About participant_id**
+> `participant_id` needs to be unique among experimental clients and recoverable upon re-access.
 > For example, setting a CrowdWorker specific ID is possible, but not recommended as it cannot handle re-access from a different browser.
 > Also, IDs that change every time the experiment page is accessed, like session IDs, are not recommended because they cannot detect re-access.
 >
@@ -245,7 +245,7 @@ Completes the current step and retrieves the URL for the next step. The system d
 ```jsonc
 {
   "experiment_id": "my_experiment_v1",
-  "browser_id": "unique_browser_hash_123",
+  "participant_id": "unique_browser_hash_123",
   "current_url": "https://survey.example.com/consent?user=123", // Currently displayed URL
   "properties": {
       "score": 100 // Properties can be updated if necessary
@@ -282,7 +282,7 @@ Notifies that the participant is continuing the experiment (browser is open). Us
 ```jsonc
 {
   "experiment_id": "my_experiment_v1",
-  "browser_id": "unique_browser_hash_123"
+  "participant_id": "unique_browser_hash_123"
 }
 ```
 
@@ -299,7 +299,7 @@ This is an implementation example combining [browser-id](https://github.com/miya
 
 ### 1. Initial Assignment (Assign)
 
-In the first screen, obtain (generate) `browser_id` and call the `Assign` API to transition to the experiment URL.
+In the first screen, obtain (generate) `participant_id` and call the `Assign` API to transition to the experiment URL.
 
 ```javascript
 // Load participants-id library in html header, etc.
@@ -322,13 +322,13 @@ const loading_process_trial = {
                 (id) => typeof id === "string" && id.length > 0
             );
 
-            // 2. Get browser_id (Generate on first time, retrieve from LocalStorage on subsequent times)
-            const browserId = await participant.get_browser_id();
+            // 2. Get participant_id (Generate on first time, retrieve from LocalStorage on subsequent times)
+            const browserId = await participant.get_participant_id();
 
             // 3. Save attribute information (if necessary)
             // Example: Get ID input in the previous trial
             // const cwid = jsPsych.data.get().last(1).values()[0].response.cwid;
-            // await participant.set_attribute("crowdworks_id", cwid);
+            // await participant.set_attribute("browser_id", cwid);
 
             // 4. Participation Request to Server (Assign)
             const response = await fetch('/api/router/assign', {
@@ -336,10 +336,10 @@ const loading_process_trial = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     experiment_id: APP_NAME,
-                    browser_id: browserId,
+                    participant_id: browserId,
                     properties: {
                         // Send information required for access_control, etc.
-                        // crowdworks_id: cwid 
+                        // browser_id: cwid 
                     }
                 })
             });
@@ -371,7 +371,7 @@ On each page during the experiment, send heartbeats periodically and call `Next`
 const participant = new ParticipantsIdLib.AsyncParticipant(APP_NAME, /* ... */);
 
 document.addEventListener("DOMContentLoaded", async () => {
-    const browserId = await participant.get_browser_id();
+    const browserId = await participant.get_participant_id();
 
     // Send heartbeat every 10 seconds
     if (browserId) {
@@ -381,7 +381,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     experiment_id: APP_NAME,
-                    browser_id: browserId
+                    participant_id: browserId
                 })
             }).catch(e => console.error("Heartbeat error:", e));
         }, 10000);
@@ -393,7 +393,7 @@ const next_step_trial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: "Processing...",
     on_load: async () => {
-        const browserId = await participant.get_browser_id();
+        const browserId = await participant.get_participant_id();
         const currentUrl = window.location.href;
 
         // Call Next API
@@ -402,7 +402,7 @@ const next_step_trial = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 experiment_id: APP_NAME,
-                browser_id: browserId,
+                participant_id: browserId,
                 current_url: currentUrl,
                 properties: {
                     // If branching by score, etc.

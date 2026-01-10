@@ -24,14 +24,14 @@ class NextAction extends Action
         $data = $this->getFormData();
 
         $experimentId = $data['experiment_id'] ?? null;
-        $browserId = $data['browser_id'] ?? null;
+        $participantId = $data['participant_id'] ?? null;
         $currentUrl = $data['current_url'] ?? null;
         $properties = $data['properties'] ?? [];
 
-        if (!$experimentId || !$browserId || !$currentUrl) {
+        if (!$experimentId || !$participantId || !$currentUrl) {
             $missingParameters = array_keys(array_filter([
                 'experiment_id' => $experimentId,
-                'browser_id' => $browserId,
+                'participant_id' => $participantId,
                 'current_url' => $currentUrl,
             ], fn($value) => empty($value)));
 
@@ -41,7 +41,7 @@ class NextAction extends Action
             ], 400);
         }
 
-        $result = $this->routerService->next($experimentId, $browserId, $currentUrl, $properties);
+        $result = $this->routerService->next($experimentId, $participantId, $currentUrl, $properties);
 
         if (isset($result['data']) && isset($result['statusCode'])) {
             return $this->respondWithData($result['data'], $result['statusCode']);

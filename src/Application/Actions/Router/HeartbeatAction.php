@@ -23,14 +23,14 @@ class HeartbeatAction extends Action
     {
         $data = $this->getFormData();
         $experimentId = $data['experiment_id'] ?? null;
-        $browserId = $data['browser_id'] ?? null;
+        $participantId = $data['participant_id'] ?? null;
 
-        if ($experimentId && $browserId) {
-            $this->routerService->heartbeat($experimentId, $browserId);
+        if ($experimentId && $participantId) {
+            $this->routerService->heartbeat($experimentId, $participantId);
         } else {
             $missingParameters = array_keys(array_filter([
                 'experiment_id' => $experimentId,
-                'browser_id' => $browserId,
+                'participant_id' => $participantId,
             ], fn($value) => empty($value)));
             return $this->respondWithData([
                 'status' => 'error',

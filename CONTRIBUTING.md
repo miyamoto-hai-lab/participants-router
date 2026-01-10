@@ -35,7 +35,7 @@ erDiagram
     participants_routes {
         BIGINT id PK "Auto Increment"
         VARCHAR experiment_id "実験ID"
-        VARCHAR browser_id "参加者識別子"
+        VARCHAR participant_id "参加者識別子"
         VARCHAR condition_group "割り当てられた群ID"
         INT current_step_index "現在のステップ(0-indexed)"
         VARCHAR status "状態 (assigned, completedなど)"
@@ -52,7 +52,7 @@ erDiagram
 | :--- | :--- | :--- |
 | `id` | BIGINT | プライマリキー |
 | `experiment_id` | VARCHAR | 実験ID (`config.jsonc`のキーと対応) |
-| `browser_id` | VARCHAR | 参加者を一意に識別するID (ユニーク制約の一部) |
+| `participant_id` | VARCHAR | 参加者を一意に識別するID (ユニーク制約の一部) |
 | `condition_group` | VARCHAR | 割り当てられた実験条件グループ名 |
 | `current_step_index` | INT | 現在の進行ステップ番号 (0始まり) |
 | `status` | VARCHAR | 参加状態 (`assigned`, `completed`) |
@@ -60,7 +60,7 @@ erDiagram
 | `properties` | JSON | 参加者属性データ (スクリーニングや分岐に使用したデータ) |
 
 > [!NOTE]
-> `experiment_id` と `browser_id` の複合ユニーク制約により、同一実験への同一IDでの重複登録を防いでいます。
+> `experiment_id` と `participant_id` の複合ユニーク制約により、同一実験への同一IDでの重複登録を防いでいます。
 
 ## 開発フロー
 

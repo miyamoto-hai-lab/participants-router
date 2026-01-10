@@ -281,7 +281,7 @@
               "url": {
                 "type": "string",
                 "format": "uri",
-                "description": "問い合わせ先APIのURL (プレースホルダ: ${browser_id}, ${properties.key})"
+                "description": "問い合わせ先APIのURL (プレースホルダ: ${participant_id}, ${properties.key})"
               },
               "method": {
                 "type": "string",
@@ -297,11 +297,11 @@
                 "additionalProperties": {
                   "type": "string"
                 },
-                "description": "リクエストヘッダー (プレースホルダ: ${browser_id}, ${properties.key})"
+                "description": "リクエストヘッダー (プレースホルダ: ${participant_id}, ${properties.key})"
               },
               "body": {
                 "type": "object",
-                "description": "POST時のリクエストボディ (GETの時は無視されます) (プレースホルダ: ${browser_id}, ${properties.key})"
+                "description": "POST時のリクエストボディ (GETの時は無視されます) (プレースホルダ: ${participant_id}, ${properties.key})"
               },
               "expected_status": {
                 "type": "integer",
