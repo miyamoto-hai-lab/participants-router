@@ -23,6 +23,20 @@ class RouterTest extends TestCase
         $app = $this->getAppInstance();
         $app->getContainer()->get(\Illuminate\Database\Capsule\Manager::class);
 
+        // Create table in memory
+        \Illuminate\Database\Capsule\Manager::schema()->dropIfExists('participants_routes');
+        \Illuminate\Database\Capsule\Manager::schema()->create('participants_routes', function ($table) {
+            $table->id();
+            $table->string('experiment_id');
+            $table->string('browser_id');
+            $table->string('condition_group')->nullable();
+            $table->integer('current_step_index')->default(0);
+            $table->string('status');
+            $table->dateTime('last_heartbeat')->nullable();
+            $table->text('properties')->nullable();
+            $table->timestamps();
+        });
+
         // Create mocks
         $this->settingsProphecy = $this->prophesize(SettingsInterface::class);
         $this->loggerProphecy = $this->prophesize(LoggerInterface::class);
@@ -70,8 +84,8 @@ class RouterTest extends TestCase
         $result = $service->assign('exp_1', 'browser_1', []);
 
         $this->assertEquals(200, $result['statusCode']);
-        $this->assertEquals('ok', $result['data']['data']['status']);
-        $this->assertNotNull($result['data']['data']['url']);
+        $this->assertEquals('ok', $result['data']['status']);
+        $this->assertNotNull($result['data']['url']);
         
         // Verify DB
         $participant = Participant::where('browser_id', 'browser_1')->first();
@@ -117,6 +131,6 @@ class RouterTest extends TestCase
         // 25 years old -> Allow
         $result2 = $service->assign('exp_1', 'browser_allow', ['age' => 25]);
         $this->assertEquals(200, $result2['statusCode']);
-        $this->assertEquals('ok', $result2['data']['data']['status']);
+        $this->assertEquals('ok', $result2['data']['status']);
     }
 }

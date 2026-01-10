@@ -25,6 +25,7 @@ jobs:
               with:
                   php-version: ${{ matrix.php }}
                   coverage: xdebug
+                  extensions: sqlite3
 
             - name: Install dependencies with Composer
               uses: ramsey/composer-install@v2
