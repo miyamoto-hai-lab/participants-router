@@ -306,7 +306,8 @@ class RouterService
         // transitionを使った複雑な定義には現時点では対応しない。
 
         // 1. 現在のURL情報を解析
-        $currentBaseUrl = strtok($currentUrl, '?#');
+        $currentBaseUrl = strtok($currentUrl, '?#'); // クエリパラメータとフラグメントを除く
+        $currentBaseUrl = rtrim($currentBaseUrl, '/'); // 末尾のスラッシュを削除
         $currentQueryStr = parse_url($currentUrl, PHP_URL_QUERY) ?? '';
         parse_str($currentQueryStr, $currentUrlParameters);
 
@@ -334,7 +335,8 @@ class RouterService
                 array_merge($participant->properties ?? [], $properties)
             );
 
-            $stepBaseUrl = strtok($resolvedStepUrl, '?#');
+            $stepBaseUrl = strtok($resolvedStepUrl, '?#'); // クエリパラメータとフラグメントを除く
+            $stepBaseUrl = rtrim($stepBaseUrl, '/'); // 末尾のスラッシュを削除
             $stepQueryStr = parse_url($resolvedStepUrl, PHP_URL_QUERY) ?? '';
             parse_str($stepQueryStr, $stepUrlParameters);
 
