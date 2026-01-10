@@ -40,6 +40,10 @@ class NextAction extends Action
 
         $result = $this->routerService->next($experimentId, $browserId, $currentUrl, $properties);
 
+        if (isset($result['data']) && isset($result['statusCode'])) {
+            return $this->respondWithData($result['data'], $result['statusCode']);
+        }
+
         return $this->respondWithData($result);
     }
 }

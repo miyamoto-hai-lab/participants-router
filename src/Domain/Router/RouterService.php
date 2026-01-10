@@ -30,10 +30,16 @@ class RouterService
         // 1. 設定の取得
         $experiments = $this->settings->get('experiments');
         if (!isset($experiments[$experimentId])) {
-            return ['status' => 'error', 'message' => 'Experiment ID not found'];
+            return [
+                'data' => ['status' => 'error', 'message' => 'Experiment ID not found'],
+                'statusCode' => 404
+            ];
         }
         if (!$experiments[$experimentId]["enable"]) {
-            return ['status' => 'error', 'message' => 'Experiment is disabled'];
+            return [
+                'data' => ['status' => 'error', 'message' => 'Experiment is disabled'],
+                'statusCode' => 403
+            ];
         }
         $config = $experiments[$experimentId]['config'];
 
@@ -57,9 +63,12 @@ class RouterService
 
             if (!$isAllowed) {
                 return [
-                    'status' => 'ok',
-                    'url' => $config['access_control']['deny_redirect'] ?? null,
-                    'message' => 'Access denied'
+                    'data' => [
+                        'status' => 'ok',
+                        'url' => $config['access_control']['deny_redirect'] ?? null,
+                        'message' => 'Access denied'
+                    ],
+                    'statusCode' => 200
                 ];
             }
         }
@@ -108,9 +117,12 @@ class RouterService
 
         if (empty($candidates)) {
             return [
-                'status' => 'ok', 
-                'url' => $config['fallback_url'], 
-                'message' => 'Full'
+                'data' => [
+                    'status' => 'ok', 
+                    'url' => $config['fallback_url'], 
+                    'message' => 'Full'
+                ],
+                'statusCode' => 200
             ];
         }
 

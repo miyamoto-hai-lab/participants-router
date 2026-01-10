@@ -42,6 +42,10 @@ class AssignAction extends Action
 
         $result = $this->routerService->assign($experimentId, $browserId, $properties);
 
+        if (isset($result['data']) && isset($result['statusCode'])) {
+            return $this->respondWithData($result['data'], $result['statusCode']);
+        }
+
         return $this->respondWithData($result);
     }
 }
