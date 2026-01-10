@@ -17,7 +17,7 @@ class AssignActionTest extends TestCase
     {
         $routerServiceProphecy = $this->prophesize(RouterService::class);
         $routerServiceProphecy
-            ->assign('exp_1', 'browser_1', ['age' => 25])
+            ->assign('exp_1', 'participant_1', ['age' => 25])
             ->willReturn([
                 'data' => ['status' => 'ok', 'url' => 'http://target.com', 'message' => null],
                 'statusCode' => 200
@@ -31,7 +31,7 @@ class AssignActionTest extends TestCase
         $request = $this->createRequest('POST', '/assign');
         $request = $request->withParsedBody([
             'experiment_id' => 'exp_1',
-            'participant_id' => 'browser_1',
+            'participant_id' => 'participant_1',
             'properties' => ['age' => 25]
         ]);
         $response = new \Slim\Psr7\Response();

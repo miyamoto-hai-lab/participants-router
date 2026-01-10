@@ -16,7 +16,7 @@ class NextActionTest extends TestCase
     {
         $routerServiceProphecy = $this->prophesize(RouterService::class);
         $routerServiceProphecy
-            ->next('exp_1', 'browser_1', 'http://current.com', ['prop' => 1])
+            ->next('exp_1', 'participant_1', 'http://current.com', ['prop' => 1])
             ->willReturn([
                 'data' => ['status' => 'ok', 'url' => 'http://next.com', 'message' => null],
                 'statusCode' => 200
