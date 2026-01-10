@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * @property int $id
  * @property string $experiment_id
- * @property string $browser_id
+ * @property string $participant_id
  * @property string $condition_group
  * @property int $current_step_index
  * @property string $status
@@ -30,7 +30,7 @@ class Participant extends Model
 
     protected $fillable = [
         'experiment_id',
-        'browser_id',
+        'participant_id',
         'condition_group',
         'current_step_index',
         'status',

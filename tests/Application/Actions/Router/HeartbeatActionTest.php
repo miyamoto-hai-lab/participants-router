@@ -16,7 +16,7 @@ class HeartbeatActionTest extends TestCase
     {
         $routerServiceProphecy = $this->prophesize(RouterService::class);
         $routerServiceProphecy
-            ->heartbeat('exp_1', 'browser_1')
+            ->heartbeat('exp_1', 'participant_1')
             ->shouldBeCalled();
 
         $loggerProphecy = $this->prophesize(LoggerInterface::class);
@@ -26,7 +26,7 @@ class HeartbeatActionTest extends TestCase
         $request = $this->createRequest('POST', '/heartbeat');
         $request = $request->withParsedBody([
             'experiment_id' => 'exp_1',
-            'browser_id' => 'browser_1'
+            'participant_id' => 'participant_1'
         ]);
         $response = new \Slim\Psr7\Response();
 

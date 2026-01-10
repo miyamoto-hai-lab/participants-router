@@ -64,8 +64,8 @@ return function (ContainerBuilder $containerBuilder) {
                 Capsule::schema()->create($tableName, function (\Illuminate\Database\Schema\Blueprint $table) {
                     $table->id();
                     $table->string('experiment_id')->index();
-                    $table->string('browser_id');
-                    $table->unique(['experiment_id', 'browser_id'], 'participants_unique_entry');
+                    $table->string('participant_id');
+                    $table->unique(['experiment_id', 'participant_id'], 'participants_unique_entry');
                     $table->string('condition_group');
                     $table->integer('current_step_index')->default(0);
                     $table->string('status')->default('assigned'); // assigned, completed

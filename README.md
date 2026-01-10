@@ -3,6 +3,7 @@
 **日本語** | [English](README_en.md)
 &emsp;&emsp;
 [![Tests](https://github.com/miyamoto-hai-lab/participants-router/actions/workflows/tests.yml/badge.svg)](https://github.com/miyamoto-hai-lab/participants-router/actions/workflows/tests.yml)
+[![Coverage Status](https://coveralls.io/repos/github/miyamoto-hai-lab/participants-router/badge.svg?branch=main)](https://coveralls.io/github/miyamoto-hai-lab/participants-router?branch=main)
 
 **participants-router** は、心理学実験やオンライン調査のために設計された、PHP製のバックエンドルーティングシステムです。
 参加者ごとに一意の実験条件を割り当て、複数の実験ステップ（同意書、タスク、アンケートなど）への遷移を管理します。
@@ -77,7 +78,7 @@
 
     "experiments": {
         // 実験ID (APIリクエスト時に使用)
-        "my_experiment_v1": {
+        "sample_experiment": {
             "enable": true, // falseにするとアクセスを停止
             "config": { ... } // 実験ごとの詳細設定
         }
@@ -113,33 +114,35 @@
 
 **1. 正規表現判定 (`type: regex`)**
 クライアントから送信された `properties` の値を正規表現でチェックします。
+fieldに`participant_id`を指定すると、`participant_id`の値でpatternをチェックします。
 
 ```jsonc
 {
     "type": "regex",
-    "field": "age",      // チェック対象のプロパティ名
+    "field": "age",       // チェック対象のプロパティ名
     "pattern": "^2[0-9]$" // 正規表現パターン (例: 20代)
 }
 ```
 
 **2. 外部API問い合わせ (`type: fetch`)**
 外部サーバーにHTTPリクエストを送り、その結果に基づいて判定します。
-URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`properties` の値や `browser_id` に置換されます。
+URLやheader、Body内で `${keyname}` 形式のプレースホルダを使用でき、`properties` の値に置換されます。
+keynameに`participant_id`を指定すると、`participant_id`の値に置換されます。
 
 ```jsonc
 {
     "type": "fetch",
-    "url": "https://api.example.com/check?id=${crowdworks_id}",
+    "url": "https://api.example.com/check?id=${participant_id}",
     "method": "GET", // GET (default) or POST
     // "headers": { "Authorization": "Bearer ..." },
-    // "body": { "id": "${crowdworks_id}" }, // POSTの場合
+    // "body": { "id": "${participant_id}" }, // POSTの場合
     "expected_status": 200 // 成功とみなすHTTPステータス (省略時は200系OK判定)
 }
 ```
 
 **設定例: 複合条件**
 
-「CrowdWorks IDが7桁の数字」**かつ**「外部APIで重複チェックがOK（200が返ってきたらNGなので `not` で反転）」の場合のみ許可する例：
+「CrowdWorks IDが6桁以上の数字」**かつ**「外部APIで重複チェックがOK（200が返ってきたらNGなので `not` で反転）」の場合のみ許可する例：
 
 ```jsonc
 "access_control": {
@@ -147,20 +150,20 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
         "all_of": [
             {
                 "type": "regex",
-                "field": "crowdworks_id",
-                "pattern": "^\\d{7}$"
+                "field": "participant_id",
+                "pattern": "^\\d{6,}$"
             },
             {
                 "not": { 
                     "type": "fetch",
-                    "url": "https://api.example.com/check_duplicate/${crowdworks_id}",
+                    "url": "https://api.example.com/check_duplicate/${participant_id}",
                     "expected_status": 200 // 重複あり(200)なら true -> not で false(拒否) になる
                 }
             }
         ]
     },
     "action": "allow", // 条件が true の時の動作 (現在は allow のみ)
-    "deny_redirect": "https://example.com/screened_out.html" // 拒否された場合の遷移先
+    "deny_redirect": "https://example.com/denied.html" // 拒否された場合の遷移先
 }
 ```
 
@@ -206,10 +209,11 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 **Request Body:**
 ```jsonc
 {
-  "experiment_id": "my_experiment_v1",
-  "browser_id": "unique_client_id_abc123", // 実験クライアントを一意に識別するID
+  "experiment_id": "sample_experiment",
+  "participant_id": "unique_participant_id_abc123", // 実験参加者を一意に識別するID
   "properties": {
-    "crowdworks_id": "1234567", // access_control等の判定に使われる属性
+    // access_control等の判定に使われる属性
+    "browser_id": "019ba8d6-748e-70ae-bdf0-b29fc9188782", // ブラウザ固有のID(後述)
     "age": 25
   }
 }
@@ -217,11 +221,14 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 
 > [!TIP]
 > **browser_id について**
-> `browser_id` は実験クライアント間で一意であり、かつ再アクセス時に復元可能である必要があります。  
-> 例えばクラウドワーカー固有のID等の設定も可能ですが、異なるブラウザからの再アクセス時に対応できないため、推奨しません。
-> またセッションIDのように実験ページへのアクセス毎に変更されるIDも再アクセスを検知できないため推奨しません。
 >
-> クライアント側のID生成・管理には、宮本研究室で開発された **[participants-id](https://github.com/miyamoto-hai-lab/participants-id)** ライブラリの使用を推奨します。これを利用することで、ローカルストレージへの適切な永続化とブラウザ固有のID生成が容易に行えます。
+> クラウドソーシング実験では、別アカウントでの二重参加を防止するために、propertiesに `browser_id` を設定することをお勧めします。
+> `browser_id` はブラウザ固有のIDであり、かつ同一ブラウザでの再アクセス時に復元可能なIDです。  
+> セッションIDのように実験ページへのアクセス毎に変更されるIDを使用すると、再アクセス時に途中から開始できないため `browser_id` には使用できません。
+>
+> ID生成・管理には、宮本研究室で開発された **[browser-id](https://github.com/miyamoto-hai-lab/browser-id)** ライブラリの使用を推奨します。これを利用することで、ローカルストレージへの適切な永続化とブラウザ固有のID生成が容易に行えます。
+>
+> browser_idを使った参加制限の例は[こちら](#例)を参照してください。
 
 **Response (Success):**
 ```jsonc
@@ -236,7 +243,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 ```jsonc
 {
   "status": "ok", // または "error"
-  "url": "https://example.com/screened_out.html", // リダイレクト先（設定されている場合）
+  "url": "https://example.com/sorry.html", // リダイレクト先（設定されている場合）
   "message": "Access denied" // または "Full" 等
 }
 ```
@@ -251,8 +258,8 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 **Request Body:**
 ```jsonc
 {
-  "experiment_id": "my_experiment_v1",
-  "browser_id": "unique_browser_hash_123",
+  "experiment_id": "sample_experiment",
+  "participant_id": "unique_participant_id_abc123",
   "current_url": "https://survey.example.com/consent?user=123", // 現在表示しているURL
   "properties": {
       "score": 100 // 必要に応じてプロパティを更新可能
@@ -288,8 +295,8 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 **Request Body:**
 ```jsonc
 {
-  "experiment_id": "my_experiment_v1",
-  "browser_id": "unique_browser_hash_123"
+  "experiment_id": "sample_experiment",
+  "participant_id": "unique_participant_id_abc123"
 }
 ```
 
@@ -300,19 +307,99 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 }
 ```
 
-## クライアント実装例 (jsPsych)
+## 例
+### participants-routerの設定例
+browser_idによる参加制限を含む設定例
+```jsonc
+{
+    "$schema": "./config.schema.json",
+    "base_path": "",
+    "database": {
+        "url": "mysql://user:pass@localhost/dbname",
+        "table": "participants_routes"
+    },
+    "experiments": {
+        "sample_experiment": {
+            "enable": true,
+            "config": {
+                "access_control": {
+                    "condition": {
+                        "all_of": [
+                            {
+                                "type": "regex",
+                                "field": "participant_id",
+                                "pattern": "^\\d{6,}$"
+                            },
+                            {
+                                "not": { 
+                                    "type": "fetch",
+                                    "url": "https://api.example.com/check_duplicate/sample_experiment",
+                                    "method": "POST",
+                                    "headers": {
+                                        "Content-Type": "application/json",
+                                        "Authorization": "Bearer ${token}"
+                                    },
+                                    "body": {
+                                        "participant_id": "${participant_id}",
+                                        "browser_id": "${browser_id}"
+                                    },
+                                    "expected_status": 200
+                                }
+                            }
+                        ]
+                    },
+                    "action": "allow",
+                    "deny_redirect": "https://example.com/denied.html"
+                },
+                "assignment_strategy": "minimum",
+                "fallback_url": "https://example.com/fallback.html",
+                "heartbeat_intervalsec": 60,
+                "groups": {
+                    "group_a": {
+                        "size": 10,
+                        "url": "https://task.example.com/task_A"
+                    },
+                    "group_b": {
+                        "size": 10,
+                        "url": "https://task.example.com/task_B"
+                    }
+                }
+            }
+        }
+    }
+}
+```
+以下のようにfetch conditionとbrowser_idを組み合わせることで参加制限を実現できます。
+```jsonc
+"not": { 
+    "type": "fetch",
+    "url": "https://api.example.com/check_duplicate/sample_experiment",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${token}"
+    },
+    "body": {
+        "participant_id": "${participant_id}", // 参加者ID
+        "browser_id": "${browser_id}" // ブラウザID
+    },
+    "expected_status": 200
+}
+```
 
-[participants-id](https://github.com/miyamoto-hai-lab/participants-id) ライブラリと [jsPsych](https://www.jspsych.org/) を組み合わせた実装例です。
+### クライアント実装例 (jsPsych)
 
-### 1. 最初の参加割り当て (Assign)
+[browser-id](https://github.com/miyamoto-hai-lab/browser-id) ライブラリと [jsPsych](https://www.jspsych.org/) を組み合わせた実装例です。
 
-最初の画面で `browser_id` を取得（生成）し、`Assign` APIを叩いて実験URLへ遷移します。
+#### 1. 最初の参加割り当て (Assign)
+
+最初の画面で `participant_id` を取得（生成）し、`Assign` APIを叩いて実験URLへ遷移します。
 
 ```javascript
-// htmlヘッダー等で participants-id ライブラリを読み込んでおく
-// <script src="https://cdn.jsdelivr.net/gh/miyamoto-hai-lab/participants-id@v1.0.0/dist/participants-id.min.js"></script>
+// htmlボディ等で browser-id ライブラリを読み込んでおく
+// <script src="browser-id.global.js"></script>
 
-const APP_NAME = "my_experiment_v1";
+const APP_NAME = "sample_experiment";
 
 // jsPsychのtrialとして定義する例
 const loading_process_trial = {
@@ -321,8 +408,8 @@ const loading_process_trial = {
     choices: "NO_KEYS",
     on_load: async () => {
         try {
-            // 1. participants-idの初期化
-            const participant = new ParticipantsIdLib.AsyncParticipant(
+            // 1. browser-idの初期化
+            const browser = new BrowserIdLib.AsyncBrowser(
                 APP_NAME,
                 undefined, 
                 // IDのバリデーション関数
@@ -330,12 +417,12 @@ const loading_process_trial = {
             );
 
             // 2. browser_id の取得 (初回は生成、2回目以降はLocalStorageから取得)
-            const browserId = await participant.get_browser_id();
+            const browserId = await browser.get_id();
 
             // 3. 属性情報の保存 (必要に応じて)
             // 例: 直前のトライアルで入力させたID等を取得
-            // const cwid = jsPsych.data.get().last(1).values()[0].response.cwid;
-            // await participant.set_attribute("crowdworks_id", cwid);
+            const cwid = jsPsych.data.get().last(1).values()[0].response.cwid;
+            await browser.set_attribute("participant_id", cwid);
 
             // 4. Serverへ参加リクエスト (Assign)
             const response = await fetch('/api/router/assign', {
@@ -343,10 +430,10 @@ const loading_process_trial = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     experiment_id: APP_NAME,
-                    browser_id: browserId,
+                    participant_id: cwid,
                     properties: {
-                        // access_control等に必要な情報を送信
-                        // crowdworks_id: cwid 
+                        // browser_idも送信して複数アカウントでの多重参加を検知
+                        browser_id: browserId
                     }
                 })
             });
@@ -356,7 +443,7 @@ const loading_process_trial = {
 
             // 5. 遷移先URLへリダイレクト
             if (result.data.url) {
-                window.location.href = result.data.url;
+                window.location.href = result.data.url + "?cwid=" + cwid;
             } else {
                 alert("参加できませんでした: " + (result.data.message || "Unknown error"));
             }
@@ -369,26 +456,26 @@ const loading_process_trial = {
 };
 ```
 
-### 2. ハートビートとページ遷移 (Heartbeat & Next)
+#### 2. ハートビートとページ遷移 (Heartbeat & Next)
 
 実験中の各ページでは、ハートビートを定期送信しつつ、タスク終了時に `Next` APIを叩いて次のステップへ進みます。
 
 ```javascript
 // ページ読み込み時に Heartbeat を開始
-const participant = new ParticipantsIdLib.AsyncParticipant(APP_NAME, /* ... */);
+const browser = new BrowserIdLib.AsyncBrowser(APP_NAME, /* ... */);
+
+const cwid = window.location.searchParams.get("cwid");
 
 document.addEventListener("DOMContentLoaded", async () => {
-    const browserId = await participant.get_browser_id();
-
     // 10秒ごとにハートビート送信
-    if (browserId) {
+    if (cwid) {
         setInterval(() => {
             fetch("/api/router/heartbeat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     experiment_id: APP_NAME,
-                    browser_id: browserId
+                    participant_id: cwid
                 })
             }).catch(e => console.error("Heartbeat error:", e));
         }, 10000);
@@ -400,7 +487,6 @@ const next_step_trial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: "処理中...",
     on_load: async () => {
-        const browserId = await participant.get_browser_id();
         const currentUrl = window.location.href;
 
         // Next API を叩く
@@ -409,7 +495,7 @@ const next_step_trial = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 experiment_id: APP_NAME,
-                browser_id: browserId,
+                participant_id: cwid,
                 current_url: currentUrl,
                 properties: {
                     // スコアなどで分岐する場合
@@ -420,7 +506,7 @@ const next_step_trial = {
 
         const result = await response.json();
         if (result.data.url) {
-            window.location.href = result.data.url;
+            window.location.href = result.data.url + "?cwid=" + cwid;
         } else {
             alert("実験終了です。お疲れ様でした。");
         }

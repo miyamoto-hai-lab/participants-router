@@ -28,7 +28,7 @@ class RouterTest extends TestCase
         \Illuminate\Database\Capsule\Manager::schema()->create('participants_routes', function ($table) {
             $table->id();
             $table->string('experiment_id');
-            $table->string('browser_id');
+            $table->string('participant_id');
             $table->string('condition_group')->nullable();
             $table->integer('current_step_index')->default(0);
             $table->string('status');
@@ -75,14 +75,14 @@ class RouterTest extends TestCase
         $this->settingsProphecy->get('experiments')->willReturn($experiments);
 
         $service = $this->createService();
-        $result = $service->assign('exp_1', 'browser_1', []);
+        $result = $service->assign('exp_1', 'participant_1', []);
 
         $this->assertEquals(200, $result['statusCode']);
         $this->assertEquals('ok', $result['data']['status']);
         $this->assertNotNull($result['data']['url']);
 
         // Verify DB
-        $participant = Participant::where('browser_id', 'browser_1')->first();
+        $participant = Participant::where('participant_id', 'participant_1')->first();
         $this->assertNotNull($participant);
         $this->assertEquals('exp_1', $participant->experiment_id);
     }
@@ -116,14 +116,14 @@ class RouterTest extends TestCase
         $service = $this->createService();
 
         // 30 years old -> Deny
-        $result = $service->assign('exp_1', 'browser_deny', ['age' => 30]);
+        $result = $service->assign('exp_1', 'participant_deny', ['age' => 30]);
         $this->assertEquals(200, $result['statusCode']);
         $this->assertEquals('ok', $result['data']['status']);
         $this->assertEquals('Access denied', $result['data']['message']);
         $this->assertEquals('http://denied.com', $result['data']['url']);
 
         // 25 years old -> Allow
-        $result2 = $service->assign('exp_1', 'browser_allow', ['age' => 25]);
+        $result2 = $service->assign('exp_1', 'participant_allow', ['age' => 25]);
         $this->assertEquals(200, $result2['statusCode']);
         $this->assertEquals('ok', $result2['data']['status']);
     }
