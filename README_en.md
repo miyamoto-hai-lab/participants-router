@@ -3,6 +3,7 @@
 [日本語](README.md) | **English**
 &emsp;&emsp;
 [![Tests](https://github.com/miyamoto-hai-lab/participants-router/actions/workflows/tests.yml/badge.svg)](https://github.com/miyamoto-hai-lab/participants-router/actions/workflows/tests.yml)
+[![Coverage Status](https://coveralls.io/repos/github/miyamoto-hai-lab/participants-router/badge.svg?branch=main)](https://coveralls.io/github/miyamoto-hai-lab/participants-router?branch=main)
 
 **participants-router** is a PHP backend routing system designed for psychological experiments and online surveys.
 It assigns unique experiment conditions to each participant and manages transitions to multiple experiment steps (such as consent forms, tasks, questionnaires, etc.).
@@ -213,7 +214,7 @@ Registers participation in the experiment and retrieves the URL for the first st
 > For example, setting a CrowdWorker specific ID is possible, but not recommended as it cannot handle re-access from a different browser.
 > Also, IDs that change every time the experiment page is accessed, like session IDs, are not recommended because they cannot detect re-access.
 >
-> We recommend using the **[participants-id](https://github.com/miyamoto-hai-lab/participants-id)** library developed by the Miyamoto Lab for generating and managing client-side IDs. This library facilitates appropriate persistence to local storage and browser-unique ID generation.
+> We recommend using the **[browser-id](https://github.com/miyamoto-hai-lab/browser-id)** library developed by the Miyamoto Lab for generating and managing client-side IDs. This library facilitates appropriate persistence to local storage and browser-unique ID generation.
 
 **Response (Success):**
 ```jsonc
@@ -294,7 +295,7 @@ Notifies that the participant is continuing the experiment (browser is open). Us
 
 ## Client Implementation Example (jsPsych)
 
-This is an implementation example combining [participants-id](https://github.com/miyamoto-hai-lab/participants-id) library and [jsPsych](https://www.jspsych.org/).
+This is an implementation example combining [browser-id](https://github.com/miyamoto-hai-lab/browser-id) library and [jsPsych](https://www.jspsych.org/).
 
 ### 1. Initial Assignment (Assign)
 

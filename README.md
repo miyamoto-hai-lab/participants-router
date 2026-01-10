@@ -3,6 +3,7 @@
 **日本語** | [English](README_en.md)
 &emsp;&emsp;
 [![Tests](https://github.com/miyamoto-hai-lab/participants-router/actions/workflows/tests.yml/badge.svg)](https://github.com/miyamoto-hai-lab/participants-router/actions/workflows/tests.yml)
+[![Coverage Status](https://coveralls.io/repos/github/miyamoto-hai-lab/participants-router/badge.svg?branch=main)](https://coveralls.io/github/miyamoto-hai-lab/participants-router?branch=main)
 
 **participants-router** は、心理学実験やオンライン調査のために設計された、PHP製のバックエンドルーティングシステムです。
 参加者ごとに一意の実験条件を割り当て、複数の実験ステップ（同意書、タスク、アンケートなど）への遷移を管理します。
@@ -221,7 +222,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 > 例えばクラウドワーカー固有のID等の設定も可能ですが、異なるブラウザからの再アクセス時に対応できないため、推奨しません。
 > またセッションIDのように実験ページへのアクセス毎に変更されるIDも再アクセスを検知できないため推奨しません。
 >
-> クライアント側のID生成・管理には、宮本研究室で開発された **[participants-id](https://github.com/miyamoto-hai-lab/participants-id)** ライブラリの使用を推奨します。これを利用することで、ローカルストレージへの適切な永続化とブラウザ固有のID生成が容易に行えます。
+> クライアント側のID生成・管理には、宮本研究室で開発された **[browser-id](https://github.com/miyamoto-hai-lab/browser-id)** ライブラリの使用を推奨します。これを利用することで、ローカルストレージへの適切な永続化とブラウザ固有のID生成が容易に行えます。
 
 **Response (Success):**
 ```jsonc
@@ -302,15 +303,15 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 
 ## クライアント実装例 (jsPsych)
 
-[participants-id](https://github.com/miyamoto-hai-lab/participants-id) ライブラリと [jsPsych](https://www.jspsych.org/) を組み合わせた実装例です。
+[browser-id](https://github.com/miyamoto-hai-lab/browser-id) ライブラリと [jsPsych](https://www.jspsych.org/) を組み合わせた実装例です。
 
 ### 1. 最初の参加割り当て (Assign)
 
 最初の画面で `browser_id` を取得（生成）し、`Assign` APIを叩いて実験URLへ遷移します。
 
 ```javascript
-// htmlヘッダー等で participants-id ライブラリを読み込んでおく
-// <script src="https://cdn.jsdelivr.net/gh/miyamoto-hai-lab/participants-id@v1.0.0/dist/participants-id.min.js"></script>
+// htmlヘッダー等で browser-id ライブラリを読み込んでおく
+// <script src="https://cdn.jsdelivr.net/gh/miyamoto-hai-lab/browser-id@v1.0.0/dist/browser-id.min.js"></script>
 
 const APP_NAME = "my_experiment_v1";
 
