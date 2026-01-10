@@ -57,7 +57,7 @@ class RouterService
         // 3. Access Control
         if (isset($config['access_control']['condition'])) {
             // 条件ツリーを評価 (true = 許可, false = 拒否)
-            $isAllowed = $this->evaluateCondition($config['access_control']['condition'], $properties);
+            $isAllowed = $this->evaluateCondition($config['access_control']['condition'], $participantId, $properties);
 
             if (!$isAllowed) {
                 return [
@@ -155,13 +155,13 @@ class RouterService
     /**
      * 条件ツリーを再帰的に評価する
      */
-    private function evaluateCondition(array $condition, array $properties): bool
+    private function evaluateCondition(array $condition, string $participantId, array $properties): bool
     {
         // ALL_OF (AND)
         if (isset($condition['all_of'])) {
             foreach ($condition['all_of'] as $subCondition) {
                 // 一つでもfalseなら全体としてfalse (短絡評価)
-                if (!$this->evaluateCondition($subCondition, $properties)) {
+                if (!$this->evaluateCondition($subCondition, $participantId, $properties)) {
                     return false;
                 }
             }
@@ -172,7 +172,7 @@ class RouterService
         if (isset($condition['any_of'])) {
             foreach ($condition['any_of'] as $subCondition) {
                 // 一つでもtrueなら全体としてtrue (短絡評価)
-                if ($this->evaluateCondition($subCondition, $properties)) {
+                if ($this->evaluateCondition($subCondition, $participantId, $properties)) {
                     return true;
                 }
             }
@@ -181,17 +181,17 @@ class RouterService
 
         // NOT
         if (isset($condition['not'])) {
-            return !$this->evaluateCondition($condition['not'], $properties);
+            return !$this->evaluateCondition($condition['not'], $participantId, $properties);
         }
 
         // 末端のルール評価
-        return $this->checkRule($condition, $properties);
+        return $this->checkRule($condition, $participantId, $properties);
     }
 
     /**
      * 個別のルール(Regex, Fetch)を評価する
      */
-    private function checkRule(array $rule, array $properties): bool
+    private function checkRule(array $rule, string $participantId, array $properties): bool
     {
         $type = $rule['type'] ?? '';
         $result = false;
@@ -200,11 +200,11 @@ class RouterService
             $val = $properties[$rule['field']] ?? '';
             $result = (bool)preg_match('/' . $rule['pattern'] . '/', (string)$val);
         } elseif ($type === 'fetch') {
-            $url = $this->resolvePlaceholders($rule['url'], $properties);
+            $url = $this->resolvePlaceholders($rule['url'], $participantId, $properties);
             $method = $rule['method'] ?? 'GET';
-            $headers = $this->resolvePlaceholders($rule['headers'] ?? [], $properties);
+            $headers = $this->resolvePlaceholders($rule['headers'] ?? [], $participantId, $properties);
             $headers['Content-Type'] = 'application/json';
-            $body = $this->resolvePlaceholders($rule['body'] ?? [], $properties);
+            $body = $this->resolvePlaceholders($rule['body'] ?? [], $participantId, $properties);
             $expectedStatus = $rule['expected_status'] ?? null; // ステータスコード指定があれば優先
 
             $ch = curl_init($url);
@@ -332,6 +332,7 @@ class RouterService
             // プレースホルダー置換
             $resolvedStepUrl = $this->resolvePlaceholders(
                 $stepUrl,
+                $participantId,
                 array_merge($participant->properties ?? [], $properties)
             );
 
@@ -402,7 +403,7 @@ class RouterService
                 $url = is_string($step) ? $step : ($step['url'] ?? null);
 
                 // プレースホルダー置換
-                $url = $this->resolvePlaceholders($url, array_merge($participant->properties ?? [], $properties));
+                $url = $this->resolvePlaceholders($url, $participant->participant_id, array_merge($participant->properties ?? [], $properties));
 
                 return [
                     'data' => [
@@ -429,13 +430,13 @@ class RouterService
 
     /** * ${propertiesのキー}形式のプレースホルダーを解決するヘルパー
      */
-    private function resolvePlaceholders($input, array $properties)
+    private function resolvePlaceholders($input, string $participantId, array $properties)
     {
         // 配列の場合は再帰的に処理
         if (is_array($input)) {
             $result = [];
             foreach ($input as $key => $value) {
-                $result[$key] = $this->resolvePlaceholders($value, $properties);
+                $result[$key] = $this->resolvePlaceholders($value, $participantId, $properties);
             }
             return $result;
         }
@@ -446,6 +447,9 @@ class RouterService
         }
 
         // 文字列の場合はプレースホルダーを置換
+        // "participant_id"の場合にはparticipantIdを置換
+        // それ以外ならpropertiesのキーを置換
+        $properties = array_merge($properties, ['participant_id' => $participantId]);
         return preg_replace_callback('/\$\{([^}]+)\}/', function ($matches) use ($properties) {
             $key = $matches[1];
             return (string)($properties[$key] ?? $matches[0]);
