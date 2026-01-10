@@ -10,7 +10,7 @@
     // データベース設定
     "database": {
         // 利用するデータベースの接続先URLを指定します。
-        // SQLiteの例: "sqlite://./participants.db" (このファイルからの相対/絶対パス)
+        // SQLiteの例: "sqlite://./path/to/file.db" (このファイルからの相対/絶対パス)
         // MySQLの例: "mysql://user:password@localhost/dbname"
         // PostgreSQLの例: "pgsql://user:password@localhost/dbname"
         "url": "sqlite://./test.db",
@@ -28,7 +28,7 @@
             "enable": true,
             "config": {
                 // 参加条件設定 (Access Control)
-                // 不正アクセス防止や参加者のスクリーニング二勝できます。
+                // 不正アクセス防止や参加者のスクリーニングに使用できます。
                 // 設定しない（削除またはコメントアウト）場合は、誰でも参加可能になります。
                 "access_control": {
                     // 条件ツリー (all_of: AND, any_of: OR, not: NOT)
@@ -68,9 +68,10 @@
                 "assignment_strategy": "minimum",
                 
                 // ハートビート間隔 (秒)
-                // 参加者がブラウザを開いているかを確認する間隔。
+                // 参加者が実験ページを開いているかを確認する間隔。
                 // 指定した秒数以上ハートビートが途絶えた参加者は「離脱」とみなされ、
                 // 人数カウントから除外される場合があります（定員の再利用）。
+                // クライアント側でintervalsecよりも短い間隔でに /hearbeat にリクエストを送るように実装する必要があります。
                 // 0 に設定すると、途中離脱を考慮せず、一度割り当てられたら枠を専有し続けます。
                 "heartbeat_intervalsec": 60,
 
