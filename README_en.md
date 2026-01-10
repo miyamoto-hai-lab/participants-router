@@ -196,7 +196,7 @@ Registers participation in the experiment and retrieves the URL for the first st
 - **Content-Type**: `application/json`
 
 **Request Body:**
-```json
+```jsonc
 {
   "experiment_id": "my_experiment_v1",
   "browser_id": "unique_client_id_abc123", // ID uniquely identifying the experimental client
@@ -216,7 +216,7 @@ Registers participation in the experiment and retrieves the URL for the first st
 > We recommend using the **[participants-id](https://github.com/miyamoto-hai-lab/participants-id)** library developed by the Miyamoto Lab for generating and managing client-side IDs. This library facilitates appropriate persistence to local storage and browser-unique ID generation.
 
 **Response (Success):**
-```json
+```jsonc
 {
   "status": "ok",
   "url": "https://survey.example.com/consent", // URL to transition to
@@ -225,7 +225,7 @@ Registers participation in the experiment and retrieves the URL for the first st
 ```
 
 **Response (Denied/Full/Error):**
-```json
+```jsonc
 {
   "status": "ok", // or "error"
   "url": "https://example.com/screened_out.html", // Redirect destination (if configured)
@@ -241,7 +241,7 @@ Completes the current step and retrieves the URL for the next step. The system d
 - **Content-Type**: `application/json`
 
 **Request Body:**
-```json
+```jsonc
 {
   "experiment_id": "my_experiment_v1",
   "browser_id": "unique_browser_hash_123",
@@ -253,7 +253,7 @@ Completes the current step and retrieves the URL for the next step. The system d
 ```
 
 **Response (Next Step):**
-```json
+```jsonc
 {
   "status": "ok",
   "url": "https://task.example.com/task_A", // Next URL
@@ -262,7 +262,7 @@ Completes the current step and retrieves the URL for the next step. The system d
 ```
 
 **Response (Completed):**
-```json
+```jsonc
 {
   "status": "ok",
   "url": null, // null if no next step
@@ -278,7 +278,7 @@ Notifies that the participant is continuing the experiment (browser is open). Us
 - **Content-Type**: `application/json`
 
 **Request Body:**
-```json
+```jsonc
 {
   "experiment_id": "my_experiment_v1",
   "browser_id": "unique_browser_hash_123"
@@ -286,7 +286,7 @@ Notifies that the participant is continuing the experiment (browser is open). Us
 ```
 
 **Response:**
-```json
+```jsonc
 {
   "status": "ok"
 }

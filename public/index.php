@@ -36,7 +36,7 @@ $container = $containerBuilder->build();
 AppFactory::setContainer($container);
 $app = AppFactory::create();
 
-// Configからbase_pathを取得して設定★
+// Configからbase_pathを取得して設定
 $settings = $container->get(SettingsInterface::class);
 $basePath = $settings->get('base_path');
 

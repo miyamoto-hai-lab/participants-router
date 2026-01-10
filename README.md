@@ -204,7 +204,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 - **Content-Type**: `application/json`
 
 **Request Body:**
-```json
+```jsonc
 {
   "experiment_id": "my_experiment_v1",
   "browser_id": "unique_client_id_abc123", // 実験クライアントを一意に識別するID
@@ -224,7 +224,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 > クライアント側のID生成・管理には、宮本研究室で開発された **[participants-id](https://github.com/miyamoto-hai-lab/participants-id)** ライブラリの使用を推奨します。これを利用することで、ローカルストレージへの適切な永続化とブラウザ固有のID生成が容易に行えます。
 
 **Response (Success):**
-```json
+```jsonc
 {
   "status": "ok",
   "url": "https://survey.example.com/consent", // 遷移すべきURL
@@ -233,7 +233,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 ```
 
 **Response (Denied/Full/Error):**
-```json
+```jsonc
 {
   "status": "ok", // または "error"
   "url": "https://example.com/screened_out.html", // リダイレクト先（設定されている場合）
@@ -249,7 +249,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 - **Content-Type**: `application/json`
 
 **Request Body:**
-```json
+```jsonc
 {
   "experiment_id": "my_experiment_v1",
   "browser_id": "unique_browser_hash_123",
@@ -261,7 +261,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 ```
 
 **Response (Next Step):**
-```json
+```jsonc
 {
   "status": "ok",
   "url": "https://task.example.com/task_A", // 次のURL
@@ -270,7 +270,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 ```
 
 **Response (Completed):**
-```json
+```jsonc
 {
   "status": "ok",
   "url": null, // 次がない場合はnull
@@ -286,7 +286,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 - **Content-Type**: `application/json`
 
 **Request Body:**
-```json
+```jsonc
 {
   "experiment_id": "my_experiment_v1",
   "browser_id": "unique_browser_hash_123"
@@ -294,7 +294,7 @@ URLやBody内で `${keyname}` 形式のプレースホルダを使用でき、`p
 ```
 
 **Response:**
-```json
+```jsonc
 {
   "status": "ok"
 }
