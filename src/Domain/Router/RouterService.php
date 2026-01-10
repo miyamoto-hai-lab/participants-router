@@ -135,7 +135,7 @@ class RouterService
         $participant->condition_group = $targetGroup;
         $participant->current_step_index = 0;
         $participant->status = 'assigned';
-        $participant->metadata = $properties;
+        $participant->properties = $properties;
         $participant->save();
 
         return $this->getCurrentStepResponse($participant, $config);
@@ -203,7 +203,7 @@ class RouterService
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
             // タイムアウト設定などを入れたほうが安全
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10); 
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30); 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -239,42 +239,124 @@ class RouterService
     /**
      * 次のステップへ (Next)
      */
-    public function next(string $experimentId, string $browserId, array $properties): array
+    public function next(string $experimentId, string $browserId, string $currentUrl, array $properties): array
     {
         $experiments = $this->settings->get('experiments');
         $config = $experiments[$experimentId]['config'] ?? null;
-        if (!$config) return ['status' => 'error', 'message' => 'Config not found'];
+        if (!$config) return [
+            'data' => ['status' => 'error', 'message' => 'Config not found'], 
+            'statusCode' => 500
+        ];
 
         $participant = Participant::where('experiment_id', $experimentId)
             ->where('browser_id', $browserId)
             ->first();
 
-        if (!$participant) return ['status' => 'error', 'message' => 'Participant not found'];
+        if (!$participant){
+            return [
+                'data' =>['status' => 'error', 'message' => 'Participant not found'], 
+                'statusCode' => 404
+            ];
+        } else {
+            // ハートビート更新
+            $participant->last_heartbeat = new \DateTime();
+            $participant->save();
+        }
 
         // 現在のステップ情報を取得
         $groupConfig = $config['groups'][$participant->condition_group];
         $steps = $groupConfig['steps'];
-        $currentIndex = $participant->current_step_index;
 
         // 次へ進める
-        // ※ 本来は分岐ロジック(transitions)をここで評価してジャンプ先を決めるが、
-        //    今回は簡易的にインデックスを+1する実装とする。
-        //    (config.jsoncの複雑なtransitionsに対応するには、ここを拡張する)
+        // 現在のURL(current_url)を評価して、次のURLを決定する
+        // [現在のページの評価方法について]
+        // stepsに定義されているURLとの一致で評価する。
+        // クエリパラメータについては、各stepで定義されているものだけを使用し、それ以外の余計なパラメータがついていても無視する。
+        // もし、一致するURLが複数ある場合は、より一致率が高いURLに評価する。
+        // 例） current_url: /page?param1=value1&param2=value2&param3=value3
+        //      steps: [
+        //          "/page?param1=value1",
+        //          "/page?param2=value1&param2=value2"
+        //      ]
+        //      という設定の場合、
+        //      current_urlはstepsの2番目のURLに一致する。（1番目のURLとも一致するが2番目のURLのほうがより多くのパラメータと一致しているため）
+        // [次のステップの決定方法について]
+        // 一致したURLの次のURLを渡す。
+        // transitionを使った複雑な定義には現時点では対応しない。
         
-        $nextIndex = $currentIndex + 1;
+        // 1. 現在のURL情報を解析（効率化のためループ外で実行）
+        $currentBaseUrl = strtok($currentUrl, '?#');
+        $currentQueryStr = parse_url($currentUrl, PHP_URL_QUERY) ?? '';
+        parse_str($currentQueryStr, $currentUrlParameters);
 
-        if ($nextIndex >= count($steps)) {
-            // 完了
-            $participant->status = 'completed';
-            $participant->save();
-            return ['status' => 'ok', 'url' => null, 'message' => 'Experiment completed'];
+        $currentIndex = $participant->current_step_index;
+        $foundIndex = -1;
+
+        // 2. 探索順序の決定 (現在地、次、その他全体の順)
+        $allIndexes = array_keys($steps);
+        $searchOrder = array_unique(array_merge(
+            [$currentIndex, $currentIndex + 1],
+            $allIndexes
+        ));
+
+        foreach ($searchOrder as $index) {
+            if (!isset($steps[$index])) continue;
+
+            $step = $steps[$index];
+            $stepUrl = is_array($step) ? $step['url'] : $step;
+            
+            // プレースホルダー置換
+            $resolvedStepUrl = $this->resolvePlaceholders($stepUrl, array_merge($participant->properties ?? [], $properties));
+            
+            $stepBaseUrl = strtok($resolvedStepUrl, '?#');
+            $stepQueryStr = parse_url($resolvedStepUrl, PHP_URL_QUERY) ?? '';
+            parse_str($stepQueryStr, $stepUrlParameters);
+
+            // ベースURL一致確認
+            if ($stepBaseUrl === $currentBaseUrl) {
+                // ステップ定義にある全パラメータが現在のURLに含まれているか確認
+                $matchedParams = array_intersect_assoc($stepUrlParameters, $currentUrlParameters);
+                
+                if (count($matchedParams) === count($stepUrlParameters)) {
+                    $foundIndex = $index;
+                    break; // 最適なインデックスが見つかったのでループ終了
+                }
+            }
         }
 
-        $participant->current_step_index = $nextIndex;
-        $participant->last_heartbeat = new \DateTime(); // ついでに生存更新
-        $participant->save();
+        // 3. 次のステップへの遷移処理
+        if ($foundIndex !== -1) {
+            // ステップを1つ進める (foundIndexではなく、次に進むことを確定させる)
+            $nextIndex = $foundIndex + 1;
+            $participant->current_step_index = $nextIndex;
 
-        return $this->getCurrentStepResponse($participant, $config);
+            if (isset($steps[$nextIndex])) {
+                // 次のページがある場合                
+                $participant->save();
+                return $this->getCurrentStepResponse($participant, $config, $properties);
+            } else {
+                // [完了] 次のページがない場合
+                $participant->status = 'completed';
+                $participant->save();
+                return [
+                    'data' => [
+                        'status' => 'ok', 
+                        'url' => null, 
+                        'message' => 'Experiment completed'
+                    ],
+                    'statusCode' => 200
+                ];
+            }
+        }
+
+        // 4. [エラー] どのステップにもマッチしなかった場合
+        return [
+            'data' => [
+                'status' => 'error',
+                'message' => 'No matching step found for the current URL.'
+            ],
+            'statusCode' => 404
+        ];
     }
 
     /**
@@ -295,7 +377,7 @@ class RouterService
     /**
      * 現在のステップのURLを返すヘルパー
      */
-    private function getCurrentStepResponse(Participant $participant, array $config): array
+    private function getCurrentStepResponse(Participant $participant, array $config, array $properties = []): array
     {
         $group = $participant->condition_group;
         $steps = $config['groups'][$group]['steps'];
@@ -309,16 +391,16 @@ class RouterService
         // 文字列ならそのままURL、オブジェクトならurlプロパティ
         $url = is_string($step) ? $step : ($step['url'] ?? null);
 
-        // URLにパラメータを付与 (browser_idなど)
-        if ($url) {
-            $query = parse_url($url, PHP_URL_QUERY);
-            $url .= ($query ? '&' : '?') . 'browser_id=' . $participant->browser_id;
-        }
+        // プレースホルダー置換
+        $url = $this->resolvePlaceholders($url, array_merge($participant->properties ?? [], $properties));
 
         return [
-            'status' => 'ok',
-            'url' => $url,
-            'message' => null
+            'data' => [
+                'status' => 'ok',
+                'url' => $url,
+                'message' => null
+            ],
+            'statusCode' => 200
         ];
     }
 

@@ -21,11 +21,11 @@ class Participant extends Model
         'current_step_index',
         'status',
         'last_heartbeat',
-        'metadata',
+        'properties',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
+        'properties' => 'array',
         'last_heartbeat' => 'datetime',
     ];
 

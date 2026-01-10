@@ -70,7 +70,7 @@ return function (ContainerBuilder $containerBuilder) {
                     $table->integer('current_step_index')->default(0);
                     $table->string('status')->default('assigned'); // assigned, completed
                     $table->timestamp('last_heartbeat')->useCurrent();
-                    $table->json('metadata')->nullable();
+                    $table->json('properties')->nullable();
                     $table->timestamps();
                 });
             }
