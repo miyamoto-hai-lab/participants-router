@@ -5,6 +5,26 @@ order allow,deny
 deny from all
 </Files>
 
+<Files "config.jsonc">
+    Require all denied
+</Files>
+
+<Files "config.json">
+    Require all denied
+</Files>
+
+<Files "config.schema.json">
+    Require all denied
+</Files>
+
+<Files "README.md">
+    Require all denied
+</Files>
+
+<FilesMatch "\.(db|sql|sqlite|sqlite3)$">
+    Require all denied
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
   # Redirect to the public folder
   RewriteEngine On
