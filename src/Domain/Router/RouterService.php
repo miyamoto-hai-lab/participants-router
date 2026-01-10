@@ -44,6 +44,7 @@ class RouterService
 
         if ($participant) {
             $this->logger->info("Resume participant: $browserId");
+            // ハートビート更新
             $participant->last_heartbeat = new \DateTime();
             $participant->save();
             return $this->getCurrentStepResponse($participant, $config);
@@ -208,9 +209,14 @@ class RouterService
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            // サーバーエラー系は一律false (拒否) とする運用の場合
-            if ($httpCode >= 500) {
-                return false; 
+            // サーバーエラー系とTooManyRequestsはもう一度だけアクセスしてみる
+            if ($httpCode >= 500 || $httpCode == 429) {
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                if ($httpCode >= 500 || $httpCode == 429) {
+                    return false; // それでもダメなら拒否
+                }
             }
 
             if ($expectedStatus) {
@@ -263,6 +269,10 @@ class RouterService
             $participant->save();
         }
 
+        if ($participant->status === 'completed') {
+            return $this->getCurrentStepResponse($participant, $config);
+        }
+
         // 現在のステップ情報を取得
         $groupConfig = $config['groups'][$participant->condition_group];
         $steps = $groupConfig['steps'];
@@ -284,7 +294,7 @@ class RouterService
         // 一致したURLの次のURLを渡す。
         // transitionを使った複雑な定義には現時点では対応しない。
         
-        // 1. 現在のURL情報を解析（効率化のためループ外で実行）
+        // 1. 現在のURL情報を解析
         $currentBaseUrl = strtok($currentUrl, '?#');
         $currentQueryStr = parse_url($currentUrl, PHP_URL_QUERY) ?? '';
         parse_str($currentQueryStr, $currentUrlParameters);
@@ -326,37 +336,22 @@ class RouterService
 
         // 3. 次のステップへの遷移処理
         if ($foundIndex !== -1) {
-            // ステップを1つ進める (foundIndexではなく、次に進むことを確定させる)
+            // ステップを1つ進める
             $nextIndex = $foundIndex + 1;
             $participant->current_step_index = $nextIndex;
-
-            if (isset($steps[$nextIndex])) {
-                // 次のページがある場合                
-                $participant->save();
-                return $this->getCurrentStepResponse($participant, $config, $properties);
-            } else {
-                // [完了] 次のページがない場合
-                $participant->status = 'completed';
-                $participant->save();
-                return [
-                    'data' => [
-                        'status' => 'ok', 
-                        'url' => null, 
-                        'message' => 'Experiment completed'
-                    ],
-                    'statusCode' => 200
-                ];
-            }
+            $participant->save();
+            return $this->getCurrentStepResponse($participant, $config, $properties);
+        } else {
+            // 4. [エラー] どのステップにもマッチしなかった場合
+            return [
+                'data' => [
+                    'status' => 'error',
+                    'url' => null,
+                    'message' => 'No matching step found for the current URL.'
+                ],
+                'statusCode' => 404
+            ];
         }
-
-        // 4. [エラー] どのステップにもマッチしなかった場合
-        return [
-            'data' => [
-                'status' => 'error',
-                'message' => 'No matching step found for the current URL.'
-            ],
-            'statusCode' => 404
-        ];
     }
 
     /**
@@ -382,26 +377,36 @@ class RouterService
         $group = $participant->condition_group;
         $steps = $config['groups'][$group]['steps'];
         $index = $participant->current_step_index;
+        if (isset($steps[$index]) && $participant->status !== 'completed') {
+                // 次のページがある場合
+                $step = $steps[$index];
+                // 文字列ならそのままURL、オブジェクトならurlプロパティ
+                $url = is_string($step) ? $step : ($step['url'] ?? null);
 
-        if (!isset($steps[$index])) {
-            return ['status' => 'ok', 'url' => null, 'message' => 'Completed'];
-        }
+                // プレースホルダー置換
+                $url = $this->resolvePlaceholders($url, array_merge($participant->properties ?? [], $properties));
 
-        $step = $steps[$index];
-        // 文字列ならそのままURL、オブジェクトならurlプロパティ
-        $url = is_string($step) ? $step : ($step['url'] ?? null);
-
-        // プレースホルダー置換
-        $url = $this->resolvePlaceholders($url, array_merge($participant->properties ?? [], $properties));
-
-        return [
-            'data' => [
-                'status' => 'ok',
-                'url' => $url,
-                'message' => null
-            ],
-            'statusCode' => 200
-        ];
+                return [
+                    'data' => [
+                        'status' => 'ok',
+                        'url' => $url,
+                        'message' => null
+                    ],
+                    'statusCode' => 200
+                ];
+            } else {
+                // [完了] 次のページがない場合
+                $participant->status = 'completed';
+                $participant->save();
+                return [
+                    'data' => [
+                        'status' => 'ok', 
+                        'url' => null, 
+                        'message' => 'Experiment completed'
+                    ],
+                    'statusCode' => 200
+                ];
+            }
     }
 
     /** * ${propertiesのキー}形式のプレースホルダーを解決するヘルパー
