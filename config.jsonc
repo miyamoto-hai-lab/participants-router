@@ -34,18 +34,18 @@
                     // 条件ツリー (all_of: AND, any_of: OR, not: NOT)
                     "condition": {
                         "all_of": [
-                            // 条件例1: properties.crowdworks_id が7桁の数字であること
+                            // 条件例1: participant_id が6桁以上の数字であること
                             {
                                 "type": "regex",
-                                "field": "crowdworks_id",
-                                "pattern": "^\\d{7}$"
+                                "field": "participant_id",
+                                "pattern": "^\\d{6,}$"
                             },
                             // 条件例2: 外部APIで重複チェック (200 OKが返ってきたら「参加済み」なので拒否)
                             {
                                 "not": {
                                     "type": "fetch",
                                     // ${key} は properties の値に置換されます
-                                    "url": "https://api.example.com/check_duplicate/${crowdworks_id}",
+                                    "url": "https://api.example.com/check_duplicate/${participant_id}",
                                     "method": "GET",
                                     "expected_status": 200 // 200ならtrue(重複) -> notでfalse(参加拒否)
                                 }
