@@ -7,3 +7,4 @@
 .phpunit.result.cache
 *.db
 config.jsonc
+.phpunit.cache/

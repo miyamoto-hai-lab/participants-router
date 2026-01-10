@@ -26,7 +26,12 @@ return function (ContainerBuilder $containerBuilder) {
     };
 
     // 設定読み込み
-    $experimentConfig = $loadJsonc(__DIR__ . '/../config.jsonc');
+    $configPath = $_ENV['APP_CONFIG_PATH'] ?? __DIR__ . '/../config.jsonc';
+    if (!str_starts_with($configPath, '/') && !str_starts_with($configPath, '\\') && !preg_match('/^[a-zA-Z]:/', $configPath)) {
+        $configPath = __DIR__ . '/../' . $configPath;
+    }
+    
+    $experimentConfig = $loadJsonc($configPath);
     
     // DB設定のデフォルト値 (SQLite)
     $dbConfig = $experimentConfig['database'] ?? [
@@ -41,9 +46,15 @@ return function (ContainerBuilder $containerBuilder) {
         if ($parts['scheme'] === 'sqlite') {
             $dbConfig = [
                 'driver' => 'sqlite',
-                'database' => isset($parts['path']) ? __DIR__ . '/../' . ltrim($parts['path'], '/') : __DIR__ . '/../database.sqlite',
+                'database' => (isset($parts['path']) && $parts['path'] !== ':memory:') 
+                    ? __DIR__ . '/../' . ltrim($parts['path'], '/') 
+                    : ($parts['path'] ?? ':memory:'),
                 'prefix' => '',
             ];
+            // :memory: の場合は特別扱い
+            if ($parts['path'] === ':memory:') {
+                $dbConfig['database'] = ':memory:';
+            }
         } elseif ($parts['scheme'] === 'mysql') {
             $dbConfig = [
                 'driver' => 'mysql',

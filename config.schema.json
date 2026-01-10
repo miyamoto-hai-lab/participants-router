@@ -21,9 +21,12 @@
       "properties": {
         "url": {
           "type": "string",
-          "description": "データベースの接続先URL (例: sqlite//./test.db)",
+          "description": "データベースの接続先URL",
           "examples": [
-            "sqlite//./test.db"
+            "mysql://user:password@localhost/dbname",
+            "postgres://user:password@localhost/dbname",
+            "sqlite//relative/path/to/dbfile",
+            "sqlite///absolute/path/to/dbfile"
           ]
         },
         "table": {
@@ -64,41 +67,24 @@
       "required": [
         "access_control",
         "fallback_url",
-        "conditions"
+        "groups"
       ],
       "properties": {
         "access_control": {
           "type": "object",
-          "description": "アクセス制限設定",
-          "default": {
-            "default_action": "allow",
-            "rules": []
-          },
+          "description": "アクセス制限設定 (Boolean Logic Tree)",
           "required": [
-            "default_action",
-            "deny_redirect",
-            "rules"
+            "condition"
           ],
           "properties": {
-            "default_action": {
-              "type": "string",
-              "enum": [
-                "allow",
-                "deny"
-              ],
-              "description": "ルールにマッチしない場合に参加を許可するかどうか"
+            "condition": {
+              "$ref": "#/definitions/BooleanCondition",
+              "description": "評価する条件ツリー。trueなら参加許可、falseなら拒否。"
             },
             "deny_redirect": {
               "type": "string",
               "format": "uri",
               "description": "参加を拒否した場合のリダイレクト先URL"
-            },
-            "rules": {
-              "type": "array",
-              "description": "参加制限ルールの配列",
-              "items": {
-                "$ref": "#/definitions/AccessControlRule"
-              }
             }
           }
         },
@@ -121,19 +107,19 @@
           "description": "参加者を作業中とみなすHeartbeatの間隔(秒)。0にするとルーティング時に途中離脱を考慮しない。",
           "default": 60
         },
-        "conditions": {
+        "groups": {
           "type": "object",
           "description": "実験の条件定義",
           "patternProperties": {
             "^.*$": {
-              "$ref": "#/definitions/Condition",
+              "$ref": "#/definitions/Group",
               "description": "実験条件名(ID)"
             }
           }
         }
       }
     },
-    "Condition": {
+    "Group": {
       "type": "object",
       "required": [
         "limit",
@@ -189,6 +175,53 @@
         }
       }
     },
+    "BooleanCondition": {
+      "type": "object",
+      "description": "再帰的な条件定義。all_of(AND), any_of(OR), not(NOT), または個別のルール(RuleBase)を指定します。",
+      "oneOf": [
+        {
+          "properties": {
+            "all_of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BooleanCondition"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "all_of"
+          ]
+        },
+        {
+          "properties": {
+            "any_of": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BooleanCondition"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "any_of"
+          ]
+        },
+        {
+          "properties": {
+            "not": {
+              "$ref": "#/definitions/BooleanCondition"
+            }
+          },
+          "required": [
+            "not"
+          ]
+        },
+        {
+          "$ref": "#/definitions/RuleBase"
+        }
+      ]
+    },
     "RuleBase": {
       "type": "object",
       "properties": {
@@ -226,7 +259,7 @@
               },
               "negate": {
                 "type": "boolean",
-                "description": "trueにすると，「正規表現にマッチしない」場合に設定を適用する",
+                "description": "trueにすると，「正規表現にマッチしない」場合にtrueを返す",
                 "default": false
               }
             }
@@ -270,35 +303,15 @@
                 "type": "object",
                 "description": "POST時のリクエストボディ (GETの時は無視されます) (プレースホルダ: ${browser_id}, ${properties.key})"
               },
+              "expected_status": {
+                "type": "integer",
+                "description": "成功とみなすHTTPステータスコード (指定がない場合はJSONのreturn値または200系で判定)"
+              },
               "negate": {
                 "type": "boolean",
-                "description": "trueにすると，「APIの結果がfalse」の場合に設定を適用する",
+                "description": "trueにすると，「APIの結果がfalse/エラー」の場合にtrueを返す",
                 "default": false
               }
-            }
-          }
-        }
-      ]
-    },
-    "AccessControlRule": {
-      "description": "アクセス制御ルール",
-      "allOf": [
-        {
-          "$ref": "#/definitions/RuleBase"
-        },
-        {
-          "type": "object",
-          "required": [
-            "action"
-          ],
-          "properties": {
-            "action": {
-              "type": "string",
-              "enum": [
-                "allow",
-                "deny"
-              ],
-              "description": "条件合致時のアクション"
             }
           }
         }

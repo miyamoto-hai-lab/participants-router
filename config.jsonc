@@ -1,85 +1,102 @@
 {
     "$schema": "./config.schema.json",
-    // ベースパスの設定 (例: "/~keimag/router" や "/router")
-    // 空の場合は自動検知を試みます
+
+    // 基本設定 (Global Settings)
+    // ベースパスの設定
+    // 例: "https://example.com/api/router" でアクセスする場合、"/api/router" と設定
+    // 空文字 ("") の場合は自動検知を試みます。
     "base_path": "",
 
     // データベース設定
     "database": {
-        // SQLite: sqlite://./path/to/database.db
-        // MySQL: mysql://user:password@hostname/databasename
-        // PostgreSQL: pgsql://user:password@hostname/databasename
-        "url": "sqlite://./router_database.db",
-        // participants-routerが使うテーブル名を変えたい場合はここを変更してください
+        // 利用するデータベースの接続先URLを指定します。
+        // SQLiteの例: "sqlite://./participants.db" (このファイルからの相対/絶対パス)
+        // MySQLの例: "mysql://user:password@localhost/dbname"
+        // PostgreSQLの例: "pgsql://user:password@localhost/dbname"
+        "url": "sqlite://./test.db",
+
+        // participants-routerが使用するテーブル名
+        // 基本的には変更不要ですが、既存のテーブルと競合する場合などは変更してください。
         "table": "participants_routes"
     },
 
-    // 実験定義
+    // 実験定義 (Experiments Definition)
     "experiments": {
-        // ここに実験を追加してください
-        // 以下 test_experiment というIDの実験例
-        "test_experiment": {
-            "enable": true, // 実験の有効化フラグ(終了した実験はfalseに設定)
+        // キー名 (例: "sample_experiment") が実験IDとなり、APIリクエスト時に使用されます。
+        "sample_experiment": {
+            // true: 有効, false: 無効 (アクセスを停止)
+            "enable": true,
             "config": {
-                // アクセス制御
+                // 参加条件設定 (Access Control)
+                // 不正アクセス防止や参加者のスクリーニング二勝できます。
+                // 設定しない（削除またはコメントアウト）場合は、誰でも参加可能になります。
                 "access_control": {
-                    "default_action": "allow",
-                    "rules": [
-                        // アクセスの許可/拒否のルールを定義します．ルールは上から順に評価され，どれにも当てはまらない場合にはdefault_actionが適用されます．
-                        // 例1: worker_idが数字のみで構成されている場合のみ許可 (正規のクラウドワークスIDが入力されていることを確認するなど)
-                        { "type": "regex", "field": "worker_id", "pattern": "\\d+", "action": "allow" }, // patternにマッチする場合に参加を許可する．falseの時拒否．
-                        // 例2: worker_idがこれまでに実験に参加していない場合のみ許可
-                        { 
-                            "type": "fetch",
-                            "url": "https://example.com/api/is_in_database",
-                            "method": "POST", // "GET"または"POST"を指定できます
-                            "headers": {
-                                "Authorization": "Bearer xxxxxxxxx"
+                    // 条件ツリー (all_of: AND, any_of: OR, not: NOT)
+                    "condition": {
+                        "all_of": [
+                            // 条件例1: properties.crowdworks_id が7桁の数字であること
+                            {
+                                "type": "regex",
+                                "field": "crowdworks_id",
+                                "pattern": "^\\d{7}$"
                             },
-                            // methodがPOSTの場合のみ
-                            "body": {
-                                "experiment_id": "previous_experiment",
-                                "browser_id": "${browser_id}",
-                                "worker_id": "${worker_id}" // participants-routerのリクエストボディのpropetiesのキーを使用できます
-                            },
-                            "action": "deny"
-                        }
-                    ],
-                    "deny_redirect": "https://example.com/sorry"
+                            // 条件例2: 外部APIで重複チェック (200 OKが返ってきたら「参加済み」なので拒否)
+                            {
+                                "not": {
+                                    "type": "fetch",
+                                    // ${key} は properties の値に置換されます
+                                    "url": "https://api.example.com/check_duplicate/${crowdworks_id}",
+                                    "method": "GET",
+                                    "expected_status": 200 // 200ならtrue(重複) -> notでfalse(参加拒否)
+                                }
+                            }
+                        ]
+                    },
+                    // 条件を満たさない拒否された場合のリダイレクト先
+                    "deny_redirect": "https://example.com/forbidden.html",
+                    // 上記ルールを満たした場合の参加可否
+                    // "deny"を指定すると上記ルールを満たす人のみが参加拒否されます。
+                    "action": "allow"
                 },
 
-                // 割り当て戦略: "minimum_count" (均等) or "random"
+                // 満員時やエラー時にリダイレクトされるURL
+                "fallback_url": "https://example.com/sorry.html",
+
+                // 割り当て戦略
+                // "minimum": 現時点で参加者数が最も少ない群へ割り当て (推奨)
+                // "random": 参加可能な群のいずれかにランダムに割り当て
                 "assignment_strategy": "minimum",
                 
-                // 満員時のリダイレクト先
-                "fallback_url": "https://example.com/sorry",
-
                 // ハートビート間隔 (秒)
-                // この時間を過ぎると離脱とみなされ、枠が解放されます。
-                // 1未満を設定すると、ハートビートによる離脱判定を行いません(一度割り当てられたら枠を占有し続けます)。
-                "heartbeat_intervalsec": 180,
+                // 参加者がブラウザを開いているかを確認する間隔。
+                // 指定した秒数以上ハートビートが途絶えた参加者は「離脱」とみなされ、
+                // 人数カウントから除外される場合があります（定員の再利用）。
+                // 0 に設定すると、途中離脱を考慮せず、一度割り当てられたら枠を専有し続けます。
+                "heartbeat_intervalsec": 60,
 
-                // 条件定義
-                "conditions": {
+                // 群 (Condition Groups) の定義
+                "groups": {
                     "group_A": {
-                        "limit": 50, // 定員
+                        "limit": 50, // 参加人数上限
                         "steps": [
-                            // 被験者がアクセスすべきURLを順番に指定します
-                            "https://example.com/presurvey",
-                            "https://example.com/test?mode=A",
-                            "https://example.com/debrief"
+                            // 実験の流れをURLの配列で記述します。
+                            // 1つ目のURLが Assign API で返され、以降 Next API で順に遷移します。
+                            "https://example.com/exp/consent",
+                            "https://example.com/exp/task_A",
+                            "https://example.com/exp/questionnaire"
                         ]
                     },
                     "group_B": {
                         "limit": 50,
                         "steps": [
-                            "https://example.com/presurvey",
-                            "https://example.com/test?mode=B",
-                            "https://example.com/debrief"
+                            "https://example.com/exp/consent",
+                            "https://example.com/exp/task_B", // タスクのみ異なるURL (例)
+                            "https://example.com/exp/questionnaire"
                         ]
                     }
                 }
             }
         }
+        // 実験はいくつでも定義できます。
     }
 }

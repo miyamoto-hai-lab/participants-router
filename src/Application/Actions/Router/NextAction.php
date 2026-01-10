@@ -22,16 +22,30 @@ class NextAction extends Action
     protected function action(): Response
     {
         $data = $this->getFormData();
-        
+
         $experimentId = $data['experiment_id'] ?? null;
-        $browserId = $data['browser_id'] ?? null; // CookieではなくBodyから取得
+        $browserId = $data['browser_id'] ?? null;
+        $currentUrl = $data['current_url'] ?? null;
         $properties = $data['properties'] ?? [];
 
-        if (!$experimentId || !$browserId) {
-            return $this->respondWithData(['status' => 'error', 'message' => 'Missing parameters'], 400);
+        if (!$experimentId || !$browserId || !$currentUrl) {
+            $missingParameters = array_keys(array_filter([
+                'experiment_id' => $experimentId,
+                'browser_id' => $browserId,
+                'current_url' => $currentUrl,
+            ], fn($value) => empty($value)));
+
+            return $this->respondWithData([
+                'status' => 'error',
+                'message' => 'Missing parameters: ' . implode(', ', $missingParameters)
+            ], 400);
         }
 
-        $result = $this->routerService->next($experimentId, $browserId, $properties);
+        $result = $this->routerService->next($experimentId, $browserId, $currentUrl, $properties);
+
+        if (isset($result['data']) && isset($result['statusCode'])) {
+            return $this->respondWithData($result['data'], $result['statusCode']);
+        }
 
         return $this->respondWithData($result);
     }

@@ -6,6 +6,20 @@ namespace App\Domain\Participant;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $experiment_id
+ * @property string $browser_id
+ * @property string $condition_group
+ * @property int $current_step_index
+ * @property string $status
+ * @property array $properties
+ * @property \DateTime $created_at
+ * @property \DateTime $updated_at
+ * @property \DateTime|null $last_heartbeat
+ * @method static \Illuminate\Database\Eloquent\Builder|Participant where($column, $operator = null, $value = null, $boolean = 'and')
+ * @method static \Illuminate\Database\Eloquent\Builder|Participant first($columns = ['*'])
+ */
 class Participant extends Model
 {
     // デフォルト値 (設定読み込み前のフォールバック)
@@ -21,11 +35,11 @@ class Participant extends Model
         'current_step_index',
         'status',
         'last_heartbeat',
-        'metadata',
+        'properties',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
+        'properties' => 'array',
         'last_heartbeat' => 'datetime',
     ];
 

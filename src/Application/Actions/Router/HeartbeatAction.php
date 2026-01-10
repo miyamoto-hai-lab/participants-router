@@ -27,6 +27,15 @@ class HeartbeatAction extends Action
 
         if ($experimentId && $browserId) {
             $this->routerService->heartbeat($experimentId, $browserId);
+        } else {
+            $missingParameters = array_keys(array_filter([
+                'experiment_id' => $experimentId,
+                'browser_id' => $browserId,
+            ], fn($value) => empty($value)));
+            return $this->respondWithData([
+                'status' => 'error',
+                'message' => 'Missing parameters: ' . implode(', ', $missingParameters)
+            ], 400);
         }
 
         return $this->respondWithData(['status' => 'ok']);
