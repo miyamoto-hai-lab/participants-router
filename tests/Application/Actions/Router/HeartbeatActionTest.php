@@ -31,7 +31,7 @@ class HeartbeatActionTest extends TestCase
         $response = new \Slim\Psr7\Response();
 
         $response = $action($request, $response, []);
-        
+
         $payload = (string) $response->getBody();
         $expectedPayload = ['statusCode' => 200, 'data' => ['status' => 'ok']];
         $this->assertEquals($expectedPayload, json_decode($payload, true));

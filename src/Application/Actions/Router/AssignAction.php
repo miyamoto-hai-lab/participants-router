@@ -22,7 +22,7 @@ class AssignAction extends Action
     protected function action(): Response
     {
         $data = $this->getFormData();
-        
+
         $experimentId = $data['experiment_id'] ?? null;
         $browserId = $data['browser_id'] ?? null; // ここでbrowser_idを受け取る
         $properties = $data['properties'] ?? [];
@@ -37,7 +37,10 @@ class AssignAction extends Action
                 'experiment_id' => $experimentId,
                 'browser_id' => $browserId,
             ], fn($value) => empty($value)));
-            return $this->respondWithData(['status' => 'error', 'message' => 'Missing parameters: ' . implode(', ', $missingParameters)], 400);
+            return $this->respondWithData([
+                'status' => 'error',
+                'message' => 'Missing parameters: ' . implode(', ', $missingParameters)
+            ], 400);
         }
 
         $result = $this->routerService->assign($experimentId, $browserId, $properties);

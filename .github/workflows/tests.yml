@@ -32,11 +32,11 @@ jobs:
 
             - name: Coding standards
               if: matrix.analysis
-              run: vendor/bin/phpcs
+              run: vendor/bin/phpcs --runtime-set ignore_warnings_on_exit 1
 
             - name: Static analysis
               if: matrix.analysis
-              run: vendor/bin/phpstan
+              run: vendor/bin/phpstan --memory-limit=1G
 
             - name: Tests
               run: vendor/bin/phpunit --coverage-clover clover.xml

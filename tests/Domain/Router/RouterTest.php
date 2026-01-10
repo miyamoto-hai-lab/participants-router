@@ -40,12 +40,6 @@ class RouterTest extends TestCase
         // Create mocks
         $this->settingsProphecy = $this->prophesize(SettingsInterface::class);
         $this->loggerProphecy = $this->prophesize(LoggerInterface::class);
-        
-        // Default settings behavior
-        // $this->settingsProphecy->get('db_table')->willReturn('participants'); 
-        // Note: 'db_table' is used in RouterService constructor. 
-        // But checking the code, it calls get('db_table') in constructor.
-        // So strict mocking needed.
     }
 
     private function createService()
@@ -59,7 +53,7 @@ class RouterTest extends TestCase
     public function testAssignNewParticipant()
     {
         $this->settingsProphecy->get('db_table')->willReturn('participants_routes');
-        
+
         $config = [
             'access_control' => [], // No restrictions
             'assignment_strategy' => 'minimum',
@@ -86,7 +80,7 @@ class RouterTest extends TestCase
         $this->assertEquals(200, $result['statusCode']);
         $this->assertEquals('ok', $result['data']['status']);
         $this->assertNotNull($result['data']['url']);
-        
+
         // Verify DB
         $participant = Participant::where('browser_id', 'browser_1')->first();
         $this->assertNotNull($participant);
@@ -96,7 +90,7 @@ class RouterTest extends TestCase
     public function testAccessControlDeny()
     {
         $this->settingsProphecy->get('db_table')->willReturn('participants_routes');
-        
+
         $config = [
             'access_control' => [
                 'condition' => [
@@ -116,15 +110,15 @@ class RouterTest extends TestCase
                 'config' => $config
             ]
         ];
-        
+
         $this->settingsProphecy->get('experiments')->willReturn($experiments);
 
         $service = $this->createService();
-        
+
         // 30 years old -> Deny
         $result = $service->assign('exp_1', 'browser_deny', ['age' => 30]);
         $this->assertEquals(200, $result['statusCode']);
-        $this->assertEquals('ok', $result['data']['status']); 
+        $this->assertEquals('ok', $result['data']['status']);
         $this->assertEquals('Access denied', $result['data']['message']);
         $this->assertEquals('http://denied.com', $result['data']['url']);
 

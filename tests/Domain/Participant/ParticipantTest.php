@@ -39,7 +39,7 @@ class ParticipantTest extends TestCase
 
         $this->assertEquals('exp_1', $data['experiment_id']);
         $this->assertEquals('browser_1', $data['browser_id']);
-         // Note: Accessors might be needed or key mapping depending on Model, 
+         // Note: Accessors might be needed or key mapping depending on Model,
          // but Eloquent usually serializes attributes directly.
     }
 }

@@ -18,7 +18,10 @@ class AssignActionTest extends TestCase
         $routerServiceProphecy = $this->prophesize(RouterService::class);
         $routerServiceProphecy
             ->assign('exp_1', 'browser_1', ['age' => 25])
-            ->willReturn(['data' => ['status' => 'ok', 'url' => 'http://target.com', 'message' => null], 'statusCode' => 200])
+            ->willReturn([
+                'data' => ['status' => 'ok', 'url' => 'http://target.com', 'message' => null],
+                'statusCode' => 200
+            ])
             ->shouldBeCalled();
 
         $loggerProphecy = $this->prophesize(LoggerInterface::class);
@@ -35,15 +38,18 @@ class AssignActionTest extends TestCase
 
         // Actions in Slim 4 are Invokable, but normally we test via app->handle
         // But to call directly we need to use __invoke($request, $response, $args)
-        
+
         $response = $action($request, $response, []);
-        
+
         $payload = (string) $response->getBody();
         // ActionPayload wraps data
-        $expectedPayload = ['statusCode' => 200, 'data' => ['status' => 'ok', 'url' => 'http://target.com', 'message' => null]];
+        $expectedPayload = [
+            'statusCode' => 200,
+            'data' => ['status' => 'ok', 'url' => 'http://target.com', 'message' => null]
+        ];
         $this->assertEquals($expectedPayload, json_decode($payload, true));
     }
-    
+
     public function testAssignActionMissingParams()
     {
         $routerServiceProphecy = $this->prophesize(RouterService::class);
@@ -58,7 +64,7 @@ class AssignActionTest extends TestCase
         $response = new \Slim\Psr7\Response();
 
         $response = $action($request, $response, []);
-        
+
         $this->assertEquals(400, $response->getStatusCode());
     }
 }

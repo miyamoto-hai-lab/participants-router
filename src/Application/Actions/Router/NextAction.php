@@ -22,7 +22,7 @@ class NextAction extends Action
     protected function action(): Response
     {
         $data = $this->getFormData();
-        
+
         $experimentId = $data['experiment_id'] ?? null;
         $browserId = $data['browser_id'] ?? null;
         $currentUrl = $data['current_url'] ?? null;
@@ -35,7 +35,10 @@ class NextAction extends Action
                 'current_url' => $currentUrl,
             ], fn($value) => empty($value)));
 
-            return $this->respondWithData(['status' => 'error', 'message' => 'Missing parameters: ' . implode(', ', $missingParameters)], 400);
+            return $this->respondWithData([
+                'status' => 'error',
+                'message' => 'Missing parameters: ' . implode(', ', $missingParameters)
+            ], 400);
         }
 
         $result = $this->routerService->next($experimentId, $browserId, $currentUrl, $properties);

@@ -17,7 +17,10 @@ class NextActionTest extends TestCase
         $routerServiceProphecy = $this->prophesize(RouterService::class);
         $routerServiceProphecy
             ->next('exp_1', 'browser_1', 'http://current.com', ['prop' => 1])
-            ->willReturn(['data' => ['status' => 'ok', 'url' => 'http://next.com', 'message' => null], 'statusCode' => 200])
+            ->willReturn([
+                'data' => ['status' => 'ok', 'url' => 'http://next.com', 'message' => null],
+                'statusCode' => 200
+            ])
             ->shouldBeCalled();
 
         $loggerProphecy = $this->prophesize(LoggerInterface::class);
@@ -34,9 +37,12 @@ class NextActionTest extends TestCase
         $response = new \Slim\Psr7\Response();
 
         $response = $action($request, $response, []);
-        
+
         $payload = (string) $response->getBody();
-        $expectedPayload = ['statusCode' => 200, 'data' => ['status' => 'ok', 'url' => 'http://next.com', 'message' => null]];
+        $expectedPayload = [
+            'statusCode' => 200,
+            'data' => ['status' => 'ok', 'url' => 'http://next.com', 'message' => null]
+        ];
         $this->assertEquals($expectedPayload, json_decode($payload, true));
     }
 }

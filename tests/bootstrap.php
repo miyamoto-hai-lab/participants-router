@@ -11,15 +11,15 @@ if (file_exists($configFile)) {
     // Do string replacement for replacing sqlite database.
     // Assuming "url": "..." structure for database.
     $customConfig = preg_replace(
-        '/("url"\s*:\s*)"[^"]+"/', 
-        '$1"sqlite://:memory:"', 
+        '/("url"\s*:\s*)"[^"]+"/',
+        '$1"sqlite://:memory:"',
         $json
     );
-    
+
     file_put_contents($testConfigFile, $customConfig);
-    
+
     // Cleanup after tests
-    register_shutdown_function(function() use ($testConfigFile) {
+    register_shutdown_function(function () use ($testConfigFile) {
         if (file_exists($testConfigFile)) {
             unlink($testConfigFile);
         }

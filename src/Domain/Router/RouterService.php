@@ -13,13 +13,11 @@ class RouterService
 {
     private $settings;
     private $logger;
-    private $tableName;
 
     public function __construct(SettingsInterface $settings, LoggerInterface $logger)
     {
         $this->settings = $settings;
         $this->logger = $logger;
-        $this->tableName = $settings->get('db_table');
     }
 
     /**
@@ -76,20 +74,20 @@ class RouterService
         // 4. ルーティング (ハートビート & ハードキャップ)
         $groups = $config['groups'];
         $assignmentStrategy = $config['assignment_strategy'] ?? 'minimum_count';
-        
+
         // 各群の現在人数(完了 + アクティブ)を集計
         $heartbeatInterval = $config['heartbeat_intervalsec'] ?? 0;
         $activeLimit = null;
         if ($heartbeatInterval >= 1) {
             $activeLimit = (new \DateTime())->modify("-{$heartbeatInterval} seconds");
         }
-        
+
         $active_counts = [];
         $total_counts = [];
         foreach (array_keys($groups) as $group) {
             $query = Participant::where('experiment_id', $experimentId)
                 ->where('condition_group', $group);
-            
+
             $total_counts[$group] = $query->count();
 
             if ($activeLimit) {
@@ -118,8 +116,8 @@ class RouterService
         if (empty($candidates)) {
             return [
                 'data' => [
-                    'status' => 'ok', 
-                    'url' => $config['fallback_url'], 
+                    'status' => 'ok',
+                    'url' => $config['fallback_url'],
                     'message' => 'Full'
                 ],
                 'statusCode' => 200
@@ -129,7 +127,7 @@ class RouterService
         // 割り当て戦略
         $targetGroup = null;
         if ($assignmentStrategy === 'minimum') {
-            usort($candidates, function($a, $b) {
+            usort($candidates, function ($a, $b) {
                 $cmp1 = $a['active_count'] <=> $b['active_count'];
                 if ($cmp1 !== 0) {
                     return $cmp1;
@@ -201,7 +199,6 @@ class RouterService
         if ($type === 'regex') {
             $val = $properties[$rule['field']] ?? '';
             $result = (bool)preg_match('/' . $rule['pattern'] . '/', (string)$val);
-        
         } elseif ($type === 'fetch') {
             $url = $this->resolvePlaceholders($rule['url'], $properties);
             $method = $rule['method'] ?? 'GET';
@@ -216,7 +213,7 @@ class RouterService
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
             // タイムアウト設定などを入れたほうが安全
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30); 
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -261,18 +258,20 @@ class RouterService
     {
         $experiments = $this->settings->get('experiments');
         $config = $experiments[$experimentId]['config'] ?? null;
-        if (!$config) return [
-            'data' => ['status' => 'error', 'message' => 'Config not found'], 
+        if (!$config) {
+            return [
+            'data' => ['status' => 'error', 'message' => 'Config not found'],
             'statusCode' => 500
-        ];
+            ];
+        }
 
         $participant = Participant::where('experiment_id', $experimentId)
             ->where('browser_id', $browserId)
             ->first();
 
-        if (!$participant){
+        if (!$participant) {
             return [
-                'data' =>['status' => 'error', 'message' => 'Participant not found'], 
+                'data' => ['status' => 'error', 'message' => 'Participant not found'],
                 'statusCode' => 404
             ];
         } else {
@@ -305,7 +304,7 @@ class RouterService
         // [次のステップの決定方法について]
         // 一致したURLの次のURLを渡す。
         // transitionを使った複雑な定義には現時点では対応しない。
-        
+
         // 1. 現在のURL情報を解析
         $currentBaseUrl = strtok($currentUrl, '?#');
         $currentQueryStr = parse_url($currentUrl, PHP_URL_QUERY) ?? '';
@@ -322,14 +321,19 @@ class RouterService
         ));
 
         foreach ($searchOrder as $index) {
-            if (!isset($steps[$index])) continue;
+            if (!isset($steps[$index])) {
+                continue;
+            }
 
             $step = $steps[$index];
             $stepUrl = is_array($step) ? $step['url'] : $step;
-            
+
             // プレースホルダー置換
-            $resolvedStepUrl = $this->resolvePlaceholders($stepUrl, array_merge($participant->properties ?? [], $properties));
-            
+            $resolvedStepUrl = $this->resolvePlaceholders(
+                $stepUrl,
+                array_merge($participant->properties ?? [], $properties)
+            );
+
             $stepBaseUrl = strtok($resolvedStepUrl, '?#');
             $stepQueryStr = parse_url($resolvedStepUrl, PHP_URL_QUERY) ?? '';
             parse_str($stepQueryStr, $stepUrlParameters);
@@ -338,7 +342,7 @@ class RouterService
             if ($stepBaseUrl === $currentBaseUrl) {
                 // ステップ定義にある全パラメータが現在のURLに含まれているか確認
                 $matchedParams = array_intersect_assoc($stepUrlParameters, $currentUrlParameters);
-                
+
                 if (count($matchedParams) === count($stepUrlParameters)) {
                     $foundIndex = $index;
                     break; // 最適なインデックスが見つかったのでループ終了
@@ -374,7 +378,7 @@ class RouterService
         $participant = Participant::where('experiment_id', $experimentId)
             ->where('browser_id', $browserId)
             ->first();
-        
+
         if ($participant) {
             $participant->last_heartbeat = new \DateTime();
             $participant->save();
@@ -406,19 +410,19 @@ class RouterService
                     ],
                     'statusCode' => 200
                 ];
-            } else {
-                // [完了] 次のページがない場合
-                $participant->status = 'completed';
-                $participant->save();
-                return [
-                    'data' => [
-                        'status' => 'ok', 
-                        'url' => null, 
-                        'message' => 'Experiment completed'
-                    ],
-                    'statusCode' => 200
-                ];
-            }
+        } else {
+            // [完了] 次のページがない場合
+            $participant->status = 'completed';
+            $participant->save();
+            return [
+                'data' => [
+                    'status' => 'ok',
+                    'url' => null,
+                    'message' => 'Experiment completed'
+                ],
+                'statusCode' => 200
+            ];
+        }
     }
 
     /** * ${propertiesのキー}形式のプレースホルダーを解決するヘルパー
@@ -444,4 +448,5 @@ class RouterService
             $key = $matches[1];
             return (string)($properties[$key] ?? $matches[0]);
         }, $input);
-    }}
+    }
+}
